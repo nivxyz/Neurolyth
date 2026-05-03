@@ -11,7 +11,6 @@
   @keyframes pulse{0%,100%{opacity:.6;transform:translate(-50%,-50%) scale(1)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}}
   .card{position:relative;width:540px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:44px 40px;backdrop-filter:blur(20px);margin:32px 0;}
 
-  /* NAME */
   #s-name{transition:opacity .4s,transform .4s;}
   #s-name.hide{opacity:0;transform:translateY(-14px);pointer-events:none;position:absolute;}
   #s-name.gone{display:none;}
@@ -30,7 +29,6 @@
   .btn-main:hover{opacity:.85;transform:translateY(-1px);}
   .btn-main:disabled{opacity:.28;cursor:not-allowed;transform:none;}
 
-  /* APP */
   #s-app{display:none;opacity:0;transform:translateY(14px);transition:opacity .5s,transform .5s;}
   #s-app.show{display:block;opacity:1;transform:translateY(0);}
   .app-title{font-size:20px;font-weight:600;color:#fff;min-height:30px;margin-bottom:24px;}
@@ -41,8 +39,7 @@
   .tab:hover:not(.active){color:rgba(255,255,255,.7);background:rgba(255,255,255,.08);}
   .panel{display:none;}
   .panel.active{display:block;}
-
-  /* TODO */
+       
   .add-form{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;margin-bottom:16px;}
   .add-form-row{display:flex;gap:8px;margin-bottom:10px;}
   .add-form-row:last-child{margin-bottom:0;}
@@ -100,7 +97,7 @@
   .del-btn:hover{background:rgba(239,68,68,.15);color:rgba(239,68,68,.7);}
   .empty{text-align:center;padding:28px 0;font-size:13px;color:rgba(255,255,255,.18);}
 
-  /* MARKS */
+ 
   .marks-sub{font-size:13px;color:rgba(255,255,255,.28);margin-bottom:16px;}
   .exam-tabs{display:flex;gap:6px;margin-bottom:18px;}
   .etab{flex:1;padding:9px 6px;border:none;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.38);font-size:13px;font-weight:700;cursor:[...]
@@ -171,7 +168,7 @@
     </div>
   </div>
 
-  <!-- APP SCREEN -->
+  
   <div id="s-app">
     <div class="app-title" id="app-title"></div>
     <div class="tabs">
@@ -180,7 +177,7 @@
       <button class="tab" data-tab="progress">📈 Progress</button>
     </div>
 
-    <!-- TODO PANEL -->
+    <
     <div class="panel active" id="panel-todo">
       <div class="add-form">
         <div class="add-form-row">
@@ -214,7 +211,7 @@
       </div>
     </div>
 
-    <!-- MARKS PANEL -->
+    
     <div class="panel" id="panel-marks">
       <div class="marks-sub">Select an exam and enter your marks for each subject.</div>
       <div class="exam-tabs" id="exam-tabs"></div>
@@ -237,7 +234,7 @@
       </div>
     </div>
 
-    <!-- PROGRESS PANEL -->
+    
     <div class="panel" id="panel-progress">
       <div class="prog-sub">Your performance across exams — updates live as you enter marks.</div>
       <div id="prog-empty" class="prog-empty">No marks entered yet.<br>Head to the Marks tab to get started.</div>
@@ -258,14 +255,14 @@
 </div>
 
 <script>
-  // ── TYPEWRITER ──
+
   function typewrite(el, text, speed, onDone) {
     let i=0; const cur=document.createElement('span'); cur.className='cursor';
     el.innerHTML=''; el.appendChild(cur);
     const iv=setInterval(()=>{ el.insertBefore(document.createTextNode(text[i]),cur); if(++i>=text.length){clearInterval(iv);if(onDone)onDone(cur);} },speed);
   }
 
-  // ── NAME ──
+  
   const nameInput=document.getElementById('name-input'), nameBtn=document.getElementById('name-btn');
   typewrite(document.getElementById('tw-q'),"Before we start, what's your name?",45,()=>{ document.getElementById('fi-input').classList.add('show'); nameInput.focus(); });
   nameInput.addEventListener('input',()=>nameBtn.disabled=!nameInput.value.trim());
@@ -290,7 +287,7 @@
     },400);
   }
 
-  // ── TABS ──
+  
   document.querySelectorAll('.tab').forEach(t=>{
     t.addEventListener('click',()=>{
       document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
@@ -301,10 +298,10 @@
     });
   });
 
-  // ── TODO ──
+  
   let tasks=[], selectedPriority='high';
 
-  // Priority button selection
+  
   document.querySelectorAll('.pri-btn').forEach(b=>{
     b.addEventListener('click',()=>{
       document.querySelectorAll('.pri-btn').forEach(x=>x.classList.remove('selected'));
@@ -403,7 +400,7 @@
       +(low?`<span><span class="stat-dot" style="background:#f87171"></span> ${low} low</span>`:'');
   }
 
-  // ── MARKS ──
+  
   const subjectDefs=[
     {name:'Maths',icon:'📐',key:'math'},
     {name:'Science',icon:'🔬',key:'sci'},
@@ -494,7 +491,7 @@
     showResults(grandScored,grandMax,(grandScored/grandMax)*100,examTotals,subjectDefs.map((s,si)=>({name:s.name,key:s.key,pct:((exams.reduce((a,ex,ei)=>a+examVals[ei][si],0)/exams.reduce((a,ex)=>a+ex[...]
   });
 
-  // ── PROGRESS ──
+  
   const SUBJ_COLORS=['#818cf8','#34d399','#fbbf24','#f472b6','#60a5fa'];
 
   function renderProgress(){
