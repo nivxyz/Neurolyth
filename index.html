@@ -261,6 +261,7 @@ body::after {
 }
 .google-btn:hover{background:rgba(255,255,255,0.07);border-color:rgba(255,255,255,0.2);}
 .google-btn svg{width:18px;height:18px;flex-shrink:0;}
+.auth-err {
   font-size:12px;color:rgba(247,90,90,0.85);
   text-align:center;min-height:18px;margin-bottom:10px;
 }
@@ -1146,7 +1147,6 @@ function launch(){
   wel.style.opacity='0'; wel.style.transform='translateY(-20px)';
   setTimeout(()=>{
     wel.style.display='none';
-    document.getElementById('topbar-name').textContent = name;
     const app = document.getElementById('screen-app');
     app.style.display = 'block';
     requestAnimationFrame(()=>requestAnimationFrame(()=>app.classList.add('show')));
@@ -1858,7 +1858,11 @@ function renderQuizQuestion(){
 
   const opts=q.options.map((o,i)=>{
     let cls='q-opt';
-    if(isAns){ if(i===q.correct) cls+=answered===i?'correct':' reveal'; if(i===quizAnswered[quizQ]&&i!==q.correct) cls+=' wrong'; }
+    if(isAns){
+      if(i===q.correct) cls += ' reveal';
+      if(i===quizAnswered[quizQ] && i!==q.correct) cls+=' wrong';
+      if(i===quizAnswered[quizQ] && i===q.correct) cls+=' correct';
+    }
     return `<button class="${cls}" ${isAns?'disabled':''} onclick="answerQuiz(${i})">
       <span class="q-letter">${letters[i]}</span>${o}
     </button>`;
