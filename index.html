@@ -35,6 +35,9 @@ body {
   overflow-x: hidden;
 }
 
+body.auth-loading { visibility: hidden; }
+body.auth-ready { visibility: visible; }
+
 /* ── NOISE LAYER ── */
 body::after {
   content:'';
@@ -828,7 +831,7 @@ textarea.form-input{resize:vertical;min-height:100px;line-height:1.6;}
 .ai-send-btn:disabled{opacity:0.3;cursor:not-allowed;transform:none;}
 </style>
 </head>
-<body>
+<body class="auth-loading">
 <div class="glow1"></div>
 <div class="glow2"></div>
 
@@ -1168,6 +1171,26 @@ document.querySelectorAll('.tnav-btn').forEach(t => {
 
 // ── TODO ────────────────────────────────────────────────────
 let tasks=[], selectedPriority='high';
+const TASKS_STORAGE_KEY = 'neurolyth_tasks';
+
+function loadTasksFromLocalStorage(){
+  try {
+    const raw = localStorage.getItem(TASKS_STORAGE_KEY);
+    if(!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveTasksToLocalStorage(){
+  try {
+    localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
+  } catch {
+    // Ignore storage failures and keep Firestore as the primary source.
+  }
+}
 
 document.querySelectorAll('.pri-btn').forEach(b=>{
   b.addEventListener('click',()=>{
@@ -1185,6 +1208,7 @@ function addTask(){
   const subject=document.getElementById('task-subject').value;
   const deadline=document.getElementById('task-deadline').value;
   tasks.push({id:Date.now(),text,priority:selectedPriority,subject,deadline,done:false});
+  saveTasksToLocalStorage();
   saveTaskToFirestore(tasks[tasks.length-1]);
   document.getElementById('task-input').value='';
   document.getElementById('task-deadline').value='';
@@ -1193,11 +1217,20 @@ function addTask(){
   document.getElementById('task-input').focus();
 }
 
-function toggleTask(id){ const t=tasks.find(t=>t.id===id); if(t){t.done=!t.done; saveTaskToFirestore(t); renderTasks();updateTodoStats();} }
+function toggleTask(id){
+  const t=tasks.find(t=>t.id===id);
+  if(t){
+    t.done=!t.done;
+    saveTasksToLocalStorage();
+    saveTaskToFirestore(t);
+    renderTasks();
+    updateTodoStats();
+  }
+}
 
 function removeTask(id){
   const el=document.querySelector(`[data-id="${id}"]`);
-  if(el){ el.classList.add('removing'); setTimeout(()=>{tasks=tasks.filter(t=>t.id!==id); deleteTaskFromFirestore(id); renderTasks();updateTodoStats();},260); }
+  if(el){ el.classList.add('removing'); setTimeout(()=>{tasks=tasks.filter(t=>t.id!==id); saveTasksToLocalStorage(); deleteTaskFromFirestore(id); renderTasks();updateTodoStats();},260); }
 }
 
 const PRIORITY_ORDER={high:0,medium:1,low:2};
@@ -1608,6 +1641,8 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById('screen-auth').style.display = 'flex';
     document.getElementById('screen-app').style.display  = 'none';
     document.getElementById('screen-app').classList.remove('show');
+    document.body.classList.remove('auth-ready');
+    document.body.classList.add('auth-loading');
   }
 });
 
@@ -1620,6 +1655,8 @@ function enterApp(name){
     authEl.style.display = 'none';
     const app = document.getElementById('screen-app');
     app.style.display = 'block';
+    document.body.classList.remove('auth-loading');
+    document.body.classList.add('auth-ready');
     requestAnimationFrame(() => requestAnimationFrame(() => {
       app.classList.add('show');
       const greetEl  = document.getElementById('greeting-tw');
@@ -1651,10 +1688,19 @@ async function deleteTaskFromFirestore(id){
 async function loadUserData(){
   if(!currentUser) return;
   // Load tasks
-  tasks = [];
-  const snap = await getDocs(collection(db, 'users', currentUser.uid, 'tasks'));
-  snap.forEach(d => tasks.push(d.data()));
-  tasks.sort((a,b) => a.id - b.id);
+  const localTasks = loadTasksFromLocalStorage();
+  tasks = [...localTasks];
+  renderTasks(); updateTodoStats();
+  try {
+    const snap = await getDocs(collection(db, 'users', currentUser.uid, 'tasks'));
+    const remoteTasks = [];
+    snap.forEach(d => remoteTasks.push(d.data()));
+    remoteTasks.sort((a,b) => a.id - b.id);
+    tasks = remoteTasks;
+    saveTasksToLocalStorage();
+  } catch(e) {
+    console.log('Task sync unavailable, using local cache:', e);
+  }
 }
 
 // ── FIRESTORE: MARKS ────────────────────────────────────────
