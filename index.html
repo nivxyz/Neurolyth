@@ -1638,11 +1638,11 @@ onAuthStateChanged(auth, async (user) => {
     });
   } else {
     currentUser = null;
+    document.body.classList.remove('auth-loading');
+    document.body.classList.add('auth-ready');
     document.getElementById('screen-auth').style.display = 'flex';
     document.getElementById('screen-app').style.display  = 'none';
     document.getElementById('screen-app').classList.remove('show');
-    document.body.classList.remove('auth-ready');
-    document.body.classList.add('auth-loading');
   }
 });
 
