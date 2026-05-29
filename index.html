@@ -1592,8 +1592,17 @@ onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
     const name = user.displayName || user.email.split('@')[0];
-    await loadUserData();
     enterApp(name);
+    loadUserData().then(() => {
+      renderTasks();
+      updateTodoStats();
+      loadMarksFromFirestore();
+      if (document.querySelector('.tnav-btn[data-tab="progress"]')?.classList.contains('active')) {
+        renderProgress();
+      }
+    }).catch(e => {
+      console.log('User data load delayed or blocked:', e);
+    });
   } else {
     currentUser = null;
     document.getElementById('screen-auth').style.display = 'flex';
@@ -1623,7 +1632,8 @@ function enterApp(name){
         if (++j >= name.length) { clearInterval(iv); setTimeout(() => { greetCur.style.display = 'none'; }, 1200); }
       }, 60);
     }));
-    renderTasks(); updateTodoStats(); loadMarksFromFirestore();
+    renderTasks();
+    updateTodoStats();
   }, 360);
 }
 
