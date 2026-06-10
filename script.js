@@ -1,0 +1,906 @@
+
+// ── ONBOARDING ──────────────────────────────────────────────
+const nameInput = document.getElementById('name-input');
+const nameBtn   = document.getElementById('name-btn');
+nameInput.addEventListener('input', () => nameBtn.disabled = !nameInput.value.trim());
+nameInput.addEventListener('keydown', e => { if(e.key==='Enter' && !nameBtn.disabled) launch(); });
+nameBtn.addEventListener('click', launch);
+
+function launch(){
+  const name = nameInput.value.trim(); if(!name)return;
+  const wel = document.getElementById('screen-welcome');
+  wel.style.transition='opacity 0.4s ease, transform 0.4s ease';
+  wel.style.opacity='0'; wel.style.transform='translateY(-20px)';
+  setTimeout(()=>{
+    wel.style.display='none';
+    const app = document.getElementById('screen-app');
+    app.style.display = 'block';
+    requestAnimationFrame(()=>requestAnimationFrame(()=>app.classList.add('show')));
+    renderTasks(); updateTodoStats();
+  },400);
+}
+
+// ── TABS ────────────────────────────────────────────────────
+document.querySelectorAll('.tnav-btn').forEach(t => {
+  t.addEventListener('click', ()=>{
+    document.querySelectorAll('.tnav-btn').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+    if(t.dataset.tab==='progress') renderProgress();
+    if(t.dataset.tab==='ai') refreshKeyUI();
+  });
+});
+
+// ── TODO ────────────────────────────────────────────────────
+let tasks=[], selectedPriority='high';
+const TASKS_STORAGE_KEY = 'neurolyth_tasks';
+
+function loadTasksFromLocalStorage(){
+  try {
+    const raw = localStorage.getItem(TASKS_STORAGE_KEY);
+    if(!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveTasksToLocalStorage(){
+  try {
+    localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
+  } catch {
+    // Ignore storage failures and keep Firestore as the primary source.
+  }
+}
+
+document.querySelectorAll('.pri-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.pri-btn').forEach(x=>x.classList.remove('selected'));
+    b.classList.add('selected');
+    selectedPriority=b.dataset.pri;
+  });
+});
+
+document.getElementById('add-btn').addEventListener('click',addTask);
+document.getElementById('task-input').addEventListener('keydown',e=>{ if(e.key==='Enter')addTask(); });
+
+function addTask(){
+  const text=document.getElementById('task-input').value.trim(); if(!text)return;
+  const subject=document.getElementById('task-subject').value;
+  const deadline=document.getElementById('task-deadline').value;
+  tasks.push({id:Date.now(),text,priority:selectedPriority,subject,deadline,done:false});
+  saveTasksToLocalStorage();
+  saveTaskToFirestore(tasks[tasks.length-1]);
+  document.getElementById('task-input').value='';
+  document.getElementById('task-deadline').value='';
+  document.getElementById('task-subject').value='';
+  renderTasks(); updateTodoStats();
+  document.getElementById('task-input').focus();
+}
+
+function toggleTask(id){
+  const t=tasks.find(t=>t.id===id);
+  if(t){
+    t.done=!t.done;
+    saveTasksToLocalStorage();
+    saveTaskToFirestore(t);
+    renderTasks();
+    updateTodoStats();
+  }
+}
+
+function removeTask(id){
+  const el=document.querySelector(`[data-id="${id}"]`);
+  if(el){ el.classList.add('removing'); setTimeout(()=>{tasks=tasks.filter(t=>t.id!==id); saveTasksToLocalStorage(); deleteTaskFromFirestore(id); renderTasks();updateTodoStats();},260); }
+}
+
+const PRIORITY_ORDER={high:0,medium:1,low:2};
+
+function deadlineInfo(dl){
+  if(!dl)return null;
+  const today=new Date(); today.setHours(0,0,0,0);
+  const d=new Date(dl+'T00:00:00');
+  const diff=Math.round((d-today)/(1000*60*60*24));
+  if(diff<0) return {label:`Overdue by ${Math.abs(diff)}d`,cls:'overdue'};
+  if(diff===0) return {label:'Due today',cls:'soon'};
+  if(diff<=3) return {label:`Due in ${diff}d`,cls:'soon'};
+  return {label:`Due ${d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`,cls:''};
+}
+
+function renderTasks(){
+  const tl=document.getElementById('task-list');
+  [...tl.querySelectorAll('.task-item')].forEach(e=>e.remove());
+  document.getElementById('empty-msg').style.display=tasks.length?'none':'block';
+
+  const sorted=[...tasks].sort((a,b)=>{
+    if(a.done!==b.done) return a.done?1:-1;
+    return PRIORITY_ORDER[a.priority]-PRIORITY_ORDER[b.priority];
+  });
+
+  sorted.forEach(t=>{
+    const item=document.createElement('div');
+    item.className=`task-item pri-${t.priority}${t.done?' done':''}`;
+    item.dataset.id=t.id;
+
+    const check=document.createElement('button');
+    check.className='check-btn'; check.textContent=t.done?'✓':'';
+    check.addEventListener('click',()=>toggleTask(t.id));
+
+    const body=document.createElement('div'); body.className='task-body';
+    const txt=document.createElement('div'); txt.className='task-text'; txt.textContent=t.text;
+    body.appendChild(txt);
+
+    const meta=document.createElement('div'); meta.className='task-meta';
+    const priLabel={high:'High',medium:'Medium',low:'Low'};
+    const priChip=document.createElement('span');
+    priChip.className=`meta-chip chip-pri ${t.priority}`; priChip.textContent=priLabel[t.priority];
+    meta.appendChild(priChip);
+    if(t.subject){ const sc=document.createElement('span'); sc.className='meta-chip chip-subject'; sc.textContent=t.subject; meta.appendChild(sc); }
+    if(t.deadline){
+      const di=deadlineInfo(t.deadline);
+      const dc=document.createElement('span');
+      dc.className=`meta-chip chip-deadline${di?' '+di.cls:''}`; dc.textContent=di?di.label:t.deadline;
+      meta.appendChild(dc);
+    }
+    body.appendChild(meta);
+
+    const del=document.createElement('button'); del.className='del-btn'; del.textContent='×';
+    del.addEventListener('click',()=>removeTask(t.id));
+
+    item.append(check,body,del); tl.appendChild(item);
+  });
+}
+
+function updateTodoStats(){
+  const done=tasks.filter(t=>t.done).length;
+  const high=tasks.filter(t=>t.priority==='high'&&!t.done).length;
+  const med=tasks.filter(t=>t.priority==='medium'&&!t.done).length;
+  const low=tasks.filter(t=>t.priority==='low'&&!t.done).length;
+  const s=document.getElementById('todo-stats'); s.innerHTML='';
+  if(!tasks.length)return;
+  s.innerHTML=`<span>${done}/${tasks.length} done</span>`
+    +(high?`<span><span class="stat-dot" style="background:var(--green)"></span>${high} high</span>`:'')
+    +(med?`<span><span class="stat-dot" style="background:var(--yellow)"></span>${med} medium</span>`:'')
+    +(low?`<span><span class="stat-dot" style="background:var(--red)"></span>${low} low</span>`:'');
+}
+
+// ── MARKS ───────────────────────────────────────────────────
+const subjectDefs=[
+  {name:'Maths',icon:'📐',key:'math'},
+  {name:'Science',icon:'🔬',key:'sci'},
+  {name:'English',icon:'📖',key:'eng'},
+  {name:'Social Science',icon:'🌍',key:'soc'},
+  {name:'Kannada',icon:'✍️',key:'kan'},
+];
+const exams=[{label:'PT-1',max:40},{label:'HY',max:80},{label:'PT-2',max:40},{label:'AE',max:80}];
+
+const examTabsEl=document.getElementById('exam-tabs');
+const examPanelsEl=document.getElementById('exam-panels');
+
+exams.forEach((ex,ei)=>{
+  const btn=document.createElement('button');
+  btn.className='etab'+(ei===0?' active':''); btn.dataset.ei=ei;
+  btn.innerHTML=`${ex.label}<span class="etab-sub">Out of ${ex.max}</span>`;
+  btn.addEventListener('click',()=>switchExamTab(ei)); examTabsEl.appendChild(btn);
+
+  const panel=document.createElement('div');
+  panel.className='epanel'+(ei===0?' active':''); panel.id=`epanel-${ei}`;
+  const grid=document.createElement('div'); grid.className='subjects-grid';
+
+  subjectDefs.forEach(s=>{
+    const iid=`inp-${ei}-${s.key}`;
+    const row=document.createElement('div'); row.className='subject-row';
+    row.innerHTML=`<div class="s-icon">${s.icon}</div>
+      <div class="s-name">${s.name}</div>
+      <input class="mark-input" id="${iid}" type="number" min="0" max="${ex.max}" placeholder="—" autocomplete="off"/>
+      <span class="out-of">/${ex.max}</span>
+      <span class="pct-badge" id="badge-${ei}-${s.key}">—</span>`;
+    grid.appendChild(row);
+  });
+  panel.appendChild(grid); examPanelsEl.appendChild(panel);
+});
+
+exams.forEach((ex,ei)=>{
+  subjectDefs.forEach(s=>{
+    const iid=`inp-${ei}-${s.key}`;
+    document.getElementById(iid).addEventListener('input',()=>{
+      const inp=document.getElementById(iid); let v=parseFloat(inp.value);
+      if(!isNaN(v)&&v>ex.max){v=ex.max;inp.value=ex.max;}
+      const badge=document.getElementById(`badge-${ei}-${s.key}`);
+      if(!isNaN(v)&&v>=0){ badge.textContent=(v/ex.max*100).toFixed(1)+'%'; badge.style.color=pctColor(v/ex.max*100); inp.classList.remove('error'); }
+      else{ badge.textContent='—'; badge.style.color=''; }
+    });
+  });
+});
+
+function switchExamTab(ei){
+  document.querySelectorAll('.etab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.epanel').forEach(p=>p.classList.remove('active'));
+  document.querySelector(`.etab[data-ei="${ei}"]`).classList.add('active');
+  document.getElementById(`epanel-${ei}`).classList.add('active');
+}
+
+function readAllVals(){ return exams.map((ex,ei)=>subjectDefs.map(s=>{ const v=parseFloat(document.getElementById(`inp-${ei}-${s.key}`).value); return isNaN(v)?null:Math.min(v,ex.max); })); }
+
+function showResults(scored,maxTotal,pct,examCards,barData){
+  const g=grade(pct);
+  const rs=document.getElementById('results-section'); rs.style.display='block';
+  document.getElementById('res-total').textContent=`${scored} / ${maxTotal}`;
+  document.getElementById('res-pct').textContent=pct.toFixed(2)+'%';
+  const pill=document.getElementById('res-grade'); pill.textContent=g.g; pill.style.background=g.bg; pill.style.color=g.col;
+
+  const sumEl=document.getElementById('exam-summary'); sumEl.innerHTML='';
+  examCards.forEach(ec=>{
+    const p=(ec.scored/ec.max*100).toFixed(1);
+    const card=document.createElement('div'); card.className='escard';
+    card.innerHTML=`<div class="escard-label">${ec.label}</div><div class="escard-val">${ec.scored}/${ec.max}</div><div class="escard-pct" style="color:${pctColor(p)}">${p}%</div>`;
+    sumEl.appendChild(card);
+  });
+
+  const barsEl=document.getElementById('bars'); barsEl.innerHTML='';
+  barData.forEach(b=>{
+    const row=document.createElement('div'); row.className='bar-row';
+    row.innerHTML=`<span class="bar-name">${b.name}</span><div class="bar-track"><div class="bar-fill" id="bf-${b.key}"></div></div><span class="bar-pct">${b.pct}%</span>`;
+    barsEl.appendChild(row);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const bf=document.getElementById(`bf-${b.key}`);
+      bf.style.width=b.pct+'%';
+      bf.style.background=`linear-gradient(90deg,${pctColor(b.pct)},${pctColor(b.pct)}99)`;
+    }));
+  });
+  rs.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+document.getElementById('calc-btn-single').addEventListener('click',()=>{
+  document.getElementById('err-msg').textContent='';
+  const ei=parseInt(document.querySelector('.etab.active').dataset.ei); const ex=exams[ei]; let valid=true;
+  const vals=subjectDefs.map(s=>{
+    const inp=document.getElementById(`inp-${ei}-${s.key}`); const v=inp.value.trim(); const n=parseFloat(v);
+    if(v===''||isNaN(n)||n<0||n>ex.max){inp.classList.add('error');valid=false;return null;}
+    inp.classList.remove('error');return n;
+  });
+  if(!valid){document.getElementById('err-msg').textContent=`Fill in all marks for ${ex.label} (0–${ex.max}).`;return;}
+  saveMarksToFirestore();
+  const scored=vals.reduce((a,b)=>a+b,0), maxTotal=ex.max*subjectDefs.length, pct=scored/maxTotal*100;
+  showResults(scored,maxTotal,pct,[{label:ex.label,scored,max:maxTotal}],subjectDefs.map((s,i)=>({name:s.name,key:s.key,pct:(vals[i]/ex.max*100).toFixed(1)})));
+});
+
+document.getElementById('calc-btn-all').addEventListener('click',()=>{
+  document.getElementById('err-msg').textContent=''; let allValid=true;
+  const examVals=exams.map((ex,ei)=>subjectDefs.map(s=>{
+    const inp=document.getElementById(`inp-${ei}-${s.key}`); const v=inp.value.trim(); const n=parseFloat(v);
+    if(v===''||isNaN(n)||n<0||n>ex.max){inp.classList.add('error');allValid=false;return null;}
+    inp.classList.remove('error');return n;
+  }));
+  if(!allValid){document.getElementById('err-msg').textContent='Fill in all marks correctly across every exam.';return;}
+  saveMarksToFirestore();
+  const examTotals=exams.map((ex,ei)=>({label:ex.label,max:ex.max*subjectDefs.length,scored:examVals[ei].reduce((a,b)=>a+b,0)}));
+  const grandMax=examTotals.reduce((a,e)=>a+e.max,0), grandScored=examTotals.reduce((a,e)=>a+e.scored,0);
+  showResults(grandScored,grandMax,(grandScored/grandMax)*100,examTotals,subjectDefs.map((s,si)=>({name:s.name,key:s.key,pct:((exams.reduce((a,ex,ei)=>a+examVals[ei][si],0)/exams.reduce((a,ex)=>a+ex.max,0))*100).toFixed(1)})));
+});
+
+// ── PROGRESS ────────────────────────────────────────────────
+const SUBJ_COLORS=['#00e5ff','#3de8a0','#f7c948','#f76ab4','#4fa8f7'];
+
+function renderProgress(){
+  const allVals=readAllVals();
+  const filledExams=exams.map((ex,ei)=>({label:ex.label,max:ex.max,ei,vals:allVals[ei],hasData:allVals[ei].some(v=>v!==null)})).filter(e=>e.hasData);
+  if(!filledExams.length){
+    document.getElementById('prog-empty').style.display='block';
+    document.getElementById('prog-content').style.display='none';
+    return;
+  }
+  document.getElementById('prog-empty').style.display='none';
+  document.getElementById('prog-content').style.display='block';
+  const overallPcts=filledExams.map(e=>{ const f=e.vals.filter(v=>v!==null); return parseFloat((f.reduce((a,b)=>a+b,0)/(f.length*e.max)*100).toFixed(1)); });
+  const subjPcts=subjectDefs.map((s,si)=>filledExams.map(e=>e.vals[si]!==null?parseFloat((e.vals[si]/e.max*100).toFixed(1)):null));
+  const labels=filledExams.map(e=>e.label);
+  drawOverallChart(labels,overallPcts); drawSubjChart(labels,subjPcts); drawChips(filledExams,overallPcts);
+}
+
+function drawOverallChart(labels,data){
+  const canvas=document.getElementById('chart-overall');
+  const ctx=canvas.getContext('2d');
+  const W=canvas.offsetWidth||600,H=canvas.offsetHeight||200;
+  canvas.width=W; canvas.height=H; ctx.clearRect(0,0,W,H);
+  const pad={top:20,right:24,bottom:36,left:46};
+  const cw=W-pad.left-pad.right, ch=H-pad.top-pad.bottom;
+
+  ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+  [0,25,50,75,100].forEach(v=>{
+    const y=pad.top+ch-(v/100)*ch;
+    ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(pad.left+cw,y); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.2)'; ctx.font='10px DM Mono,monospace'; ctx.textAlign='right';
+    ctx.fillText(v+'%',pad.left-8,y+4);
+  });
+
+  if(data.length===1){
+    const x=pad.left+cw/2, y=pad.top+ch-(data[0]/100)*ch;
+    ctx.beginPath(); ctx.arc(x,y,7,0,Math.PI*2); ctx.fillStyle='#00e5ff'; ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.7)'; ctx.font='11px DM Mono,monospace'; ctx.textAlign='center';
+    ctx.fillText(data[0]+'%',x,y-14); ctx.fillText(labels[0],x,pad.top+ch+22);
+    return;
+  }
+
+  const step=cw/(data.length-1);
+  const grad=ctx.createLinearGradient(0,pad.top,0,pad.top+ch);
+  grad.addColorStop(0,'rgba(0,229,255,0.3)'); grad.addColorStop(1,'rgba(0,229,255,0)');
+  ctx.beginPath();
+  data.forEach((v,i)=>{ const x=pad.left+i*step,y=pad.top+ch-(v/100)*ch; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+  ctx.lineTo(pad.left+(data.length-1)*step,pad.top+ch); ctx.lineTo(pad.left,pad.top+ch); ctx.closePath();
+  ctx.fillStyle=grad; ctx.fill();
+
+  ctx.beginPath(); ctx.strokeStyle='#00e5ff'; ctx.lineWidth=2.5; ctx.lineJoin='round';
+  data.forEach((v,i)=>{ const x=pad.left+i*step,y=pad.top+ch-(v/100)*ch; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+  ctx.stroke();
+
+  data.forEach((v,i)=>{
+    const x=pad.left+i*step,y=pad.top+ch-(v/100)*ch;
+    ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2); ctx.fillStyle='#00e5ff'; ctx.fill();
+    ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.75)'; ctx.font='bold 11px DM Mono,monospace'; ctx.textAlign='center';
+    ctx.fillText(v+'%',x,y-13);
+    ctx.fillStyle='rgba(255,255,255,.3)'; ctx.font='11px DM Mono,monospace'; ctx.fillText(labels[i],x,pad.top+ch+22);
+  });
+}
+
+function drawSubjChart(labels,subjPcts){
+  const canvas=document.getElementById('chart-subjects');
+  const ctx=canvas.getContext('2d');
+  const W=canvas.offsetWidth||600,H=canvas.offsetHeight||220;
+  canvas.width=W; canvas.height=H; ctx.clearRect(0,0,W,H);
+  const pad={top:20,right:24,bottom:36,left:46};
+  const cw=W-pad.left-pad.right, ch=H-pad.top-pad.bottom;
+  const n=labels.length, step=n>1?cw/(n-1):cw/2;
+
+  ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+  [0,25,50,75,100].forEach(v=>{
+    const y=pad.top+ch-(v/100)*ch;
+    ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(pad.left+cw,y); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.2)'; ctx.font='10px DM Mono,monospace'; ctx.textAlign='right';
+    ctx.fillText(v+'%',pad.left-8,y+4);
+  });
+
+  subjectDefs.forEach((s,si)=>{
+    const color=SUBJ_COLORS[si]; const pts=subjPcts[si];
+    const vp=pts.map((v,i)=>v!==null?{x:pad.left+(n>1?i*step:cw/2),y:pad.top+ch-(v/100)*ch}:null).filter(Boolean);
+    if(!vp.length)return;
+    if(vp.length===1){ ctx.beginPath(); ctx.arc(vp[0].x,vp[0].y,5,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); return; }
+    ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=2; ctx.lineJoin='round';
+    vp.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)); ctx.stroke();
+    vp.forEach(p=>{ ctx.beginPath(); ctx.arc(p.x,p.y,4,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); });
+  });
+
+  labels.forEach((l,i)=>{
+    const x=pad.left+(n>1?i*step:cw/2);
+    ctx.fillStyle='rgba(255,255,255,.3)'; ctx.font='11px DM Mono,monospace'; ctx.textAlign='center';
+    ctx.fillText(l,x,pad.top+ch+22);
+  });
+
+  const legendEl=document.getElementById('subj-legend'); legendEl.innerHTML='';
+  subjectDefs.forEach((s,si)=>{
+    const li=document.createElement('div'); li.className='legend-item';
+    li.innerHTML=`<div class="legend-dot" style="background:${SUBJ_COLORS[si]}"></div>${s.name}`;
+    legendEl.appendChild(li);
+  });
+}
+
+function drawChips(filledExams,overallPcts){
+  const chips=document.getElementById('prog-chips'); chips.innerHTML='';
+  if(overallPcts.length<2){
+    const chip=document.createElement('div'); chip.className='prog-chip';
+    chip.innerHTML=`<strong>${overallPcts[0]}%</strong>${filledExams[0].label} average`;
+    chips.appendChild(chip); return;
+  }
+  const best=overallPcts.indexOf(Math.max(...overallPcts));
+  const worst=overallPcts.indexOf(Math.min(...overallPcts));
+  const trend=overallPcts[overallPcts.length-1]-overallPcts[0];
+  [
+    {html:`<strong style="color:${trend>=0?'var(--green)':'var(--red)'}"> ${trend>=0?'↑':'↓'} ${Math.abs(trend).toFixed(1)}%</strong>Overall trend`},
+    {html:`<strong style="color:var(--green)">${overallPcts[best]}%</strong>Best: ${filledExams[best].label}`},
+    {html:`<strong style="color:#fb923c">${overallPcts[worst]}%</strong>Lowest: ${filledExams[worst].label}`}
+  ].forEach(c=>{
+    const el=document.createElement('div'); el.className='prog-chip'; el.innerHTML=c.html; chips.appendChild(el);
+  });
+}
+
+// ── FIREBASE ────────────────────────────────────────────────
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, deleteDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDPyHj2MMziyOI-FVdr2yUZfMomYbSs1_s",
+  authDomain: "neurolythlabs.firebaseapp.com",
+  projectId: "neurolythlabs",
+  storageBucket: "neurolythlabs.firebasestorage.app",
+  messagingSenderId: "759272141118",
+  appId: "1:759272141118:web:691a6fab3e951522bdbc6f"
+};
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+let currentUser = null;
+
+// ── AUTH TABS ───────────────────────────────────────────────
+function switchAuthTab(tab){
+  document.getElementById('tab-login').classList.toggle('active', tab==='login');
+  document.getElementById('tab-signup').classList.toggle('active', tab==='signup');
+  document.getElementById('auth-login').style.display  = tab==='login'  ? 'block' : 'none';
+  document.getElementById('auth-signup').style.display = tab==='signup' ? 'block' : 'none';
+  document.getElementById('login-err').textContent  = '';
+  document.getElementById('signup-err').textContent = '';
+}
+
+// ── SIGN UP ─────────────────────────────────────────────────
+async function doSignup(){
+  const name  = document.getElementById('signup-name').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const pass  = document.getElementById('signup-pass').value;
+  const pass2 = document.getElementById('signup-pass2').value;
+  const errEl = document.getElementById('signup-err');
+  errEl.textContent = '';
+  if(!name||!email||!pass||!pass2){ errEl.textContent='Please fill in all fields.'; return; }
+  if(pass.length < 6){ errEl.textContent='Password must be at least 6 characters.'; return; }
+  if(pass !== pass2){ errEl.textContent='Passwords do not match.'; return; }
+  const btn = document.querySelector('#auth-signup .auth-btn');
+  btn.disabled = true; btn.textContent = 'Creating account…';
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    await updateProfile(cred.user, { displayName: name });
+    // Save display name to Firestore
+    await setDoc(doc(db, 'users', cred.user.uid), { name, email });
+  } catch(e) {
+    errEl.textContent = firebaseErrMsg(e.code);
+    btn.disabled = false; btn.textContent = 'Create Account →';
+  }
+}
+
+// ── SIGN IN ─────────────────────────────────────────────────
+async function doLogin(){
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  if(!email||!pass){ errEl.textContent='Please fill in all fields.'; return; }
+  const btn = document.querySelector('#auth-login .auth-btn');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch(e) {
+    errEl.textContent = firebaseErrMsg(e.code);
+    btn.disabled = false; btn.textContent = 'Sign In →';
+  }
+}
+
+// ── SIGN OUT ────────────────────────────────────────────────
+async function doLogout(){
+  await signOut(auth);
+  location.reload();
+}
+
+// ── AUTH STATE LISTENER ─────────────────────────────────────
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUser = user;
+    const name = user.displayName || user.email.split('@')[0];
+    enterApp(name);
+    loadUserData().then(() => {
+      renderTasks();
+      updateTodoStats();
+      loadMarksFromFirestore();
+      if (document.querySelector('.tnav-btn[data-tab="progress"]')?.classList.contains('active')) {
+        renderProgress();
+      }
+    }).catch(e => {
+      console.log('User data load delayed or blocked:', e);
+    });
+  } else {
+    currentUser = null;
+    document.body.classList.remove('auth-loading');
+    document.body.classList.add('auth-ready');
+    document.getElementById('screen-auth').style.display = 'flex';
+    document.getElementById('screen-app').style.display  = 'none';
+    document.getElementById('screen-app').classList.remove('show');
+  }
+});
+
+// ── ENTER APP ───────────────────────────────────────────────
+function enterApp(name){
+  const authEl = document.getElementById('screen-auth');
+  authEl.style.transition = 'opacity 0.35s ease';
+  authEl.style.opacity = '0';
+  setTimeout(() => {
+    authEl.style.display = 'none';
+    const app = document.getElementById('screen-app');
+    app.style.display = 'block';
+    document.body.classList.remove('auth-loading');
+    document.body.classList.add('auth-ready');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      app.classList.add('show');
+      const greetEl  = document.getElementById('greeting-tw');
+      const greetCur = document.getElementById('greeting-cursor');
+      greetEl.textContent = '';
+      greetCur.style.display = 'inline-block';
+      let j = 0;
+      const iv = setInterval(() => {
+        greetEl.textContent += name[j];
+        if (++j >= name.length) { clearInterval(iv); setTimeout(() => { greetCur.style.display = 'none'; }, 1200); }
+      }, 60);
+    }));
+    renderTasks();
+    updateTodoStats();
+  }, 360);
+}
+
+// ── FIRESTORE: TASKS ────────────────────────────────────────
+async function saveTaskToFirestore(task){
+  if(!currentUser) return;
+  await setDoc(doc(db, 'users', currentUser.uid, 'tasks', String(task.id)), task);
+}
+
+async function deleteTaskFromFirestore(id){
+  if(!currentUser) return;
+  await deleteDoc(doc(db, 'users', currentUser.uid, 'tasks', String(id)));
+}
+
+async function loadUserData(){
+  if(!currentUser) return;
+  // Load tasks
+  const localTasks = loadTasksFromLocalStorage();
+  tasks = [...localTasks];
+  renderTasks(); updateTodoStats();
+  try {
+    const snap = await getDocs(collection(db, 'users', currentUser.uid, 'tasks'));
+    const remoteTasks = [];
+    snap.forEach(d => remoteTasks.push(d.data()));
+    remoteTasks.sort((a,b) => a.id - b.id);
+    tasks = remoteTasks;
+    saveTasksToLocalStorage();
+  } catch(e) {
+    console.log('Task sync unavailable, using local cache:', e);
+  }
+}
+
+// ── FIRESTORE: MARKS ────────────────────────────────────────
+async function saveMarksToFirestore(){
+  if(!currentUser) return;
+  const marksData = {};
+  exams.forEach((ex, ei) => {
+    marksData[`exam_${ei}`] = {};
+    subjectDefs.forEach(s => {
+      const v = parseFloat(document.getElementById(`inp-${ei}-${s.key}`).value);
+      marksData[`exam_${ei}`][s.key] = isNaN(v) ? null : v;
+    });
+  });
+  await setDoc(doc(db, 'users', currentUser.uid, 'data', 'marks'), marksData);
+}
+
+async function loadMarksFromFirestore(){
+  if(!currentUser) return;
+  try {
+    const snap = await getDoc(doc(db, 'users', currentUser.uid, 'data', 'marks'));
+    if(!snap.exists()) return;
+    const data = snap.data();
+    exams.forEach((ex, ei) => {
+      subjectDefs.forEach(s => {
+        const v = data[`exam_${ei}`]?.[s.key];
+        const inp = document.getElementById(`inp-${ei}-${s.key}`);
+        if(inp && v !== null && v !== undefined){
+          inp.value = v;
+          const badge = document.getElementById(`badge-${ei}-${s.key}`);
+          if(badge){ badge.textContent = (v/ex.max*100).toFixed(1)+'%'; badge.style.color = pctColor(v/ex.max*100); }
+        }
+      });
+    });
+  } catch(e){ console.log('No marks yet'); }
+}
+
+// ── FIREBASE ERROR MESSAGES ─────────────────────────────────
+function firebaseErrMsg(code){
+  const map = {
+    'auth/email-already-in-use':   'An account with this email already exists.',
+    'auth/invalid-email':          'Please enter a valid email address.',
+    'auth/weak-password':          'Password must be at least 6 characters.',
+    'auth/user-not-found':         'No account found with this email.',
+    'auth/wrong-password':         'Incorrect password.',
+    'auth/invalid-credential':     'Incorrect email or password.',
+    'auth/too-many-requests':      'Too many attempts. Please try again later.',
+    'auth/network-request-failed': 'Network error. Check your connection.',
+  };
+  return map[code] || 'Something went wrong. Please try again.';
+}
+
+// ── GOOGLE SIGN IN ───────────────────────────────────────────
+const googleProvider = new GoogleAuthProvider();
+
+async function doGoogleSignIn(){
+  try {
+    const cred = await signInWithPopup(auth, googleProvider);
+    // Save to Firestore if new user
+    const userDoc = await getDoc(doc(db, 'users', cred.user.uid));
+    if(!userDoc.exists()){
+      await setDoc(doc(db, 'users', cred.user.uid), {
+        name: cred.user.displayName || cred.user.email.split('@')[0],
+        email: cred.user.email
+      });
+    }
+  } catch(e) {
+    const errEl = document.getElementById('login-err');
+    if(e.code !== 'auth/popup-closed-by-user'){
+      errEl.textContent = firebaseErrMsg(e.code);
+    }
+  }
+}
+
+// ── WIRE UP ALL BUTTONS ──────────────────────────────────────
+document.getElementById('tab-login').addEventListener('click', ()=>switchAuthTab('login'));
+document.getElementById('tab-signup').addEventListener('click', ()=>switchAuthTab('signup'));
+document.getElementById('login-btn').addEventListener('click', doLogin);
+document.getElementById('signup-btn').addEventListener('click', doSignup);
+document.getElementById('logout-btn').addEventListener('click', doLogout);
+document.getElementById('google-login-btn').addEventListener('click', doGoogleSignIn);
+document.getElementById('google-signup-btn').addEventListener('click', doGoogleSignIn);
+document.getElementById('gen-quiz-btn').addEventListener('click', generateQuiz);
+document.getElementById('save-key-btn').addEventListener('click', saveApiKey);
+document.getElementById('ai-send-btn').addEventListener('click', sendAiMessage);
+
+document.getElementById('login-pass').addEventListener('keydown',  e=>{ if(e.key==='Enter') doLogin(); });
+document.getElementById('login-email').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('login-pass').focus(); });
+document.getElementById('signup-pass2').addEventListener('keydown',e=>{ if(e.key==='Enter') doSignup(); });
+
+// quiz inline onclick handlers (rendered dynamically, keep on window)
+window.answerQuiz=answerQuiz;
+window.quizNav=quizNav;
+window.finishQuiz=finishQuiz;
+window.retryQuiz=retryQuiz;
+window.newQuiz=newQuiz;
+window.clearQuizFile=clearQuizFile;
+
+function clearQuizFile(){ quizFile=null; document.getElementById('quiz-file-preview').style.display='none'; document.getElementById('quiz-file-preview').innerHTML=''; qFile.value=''; }
+
+// ── HELPERS ─────────────────────────────────────────────────
+function pctColor(p){ if(p>=90)return'#3de8a0';if(p>=75)return'#00e5ff';if(p>=60)return'#f7c948';if(p>=35)return'#fb923c';return'#f75a5a'; }
+function grade(p){ if(p>=90)return{g:'A+',bg:'rgba(61,232,160,0.15)',col:'#3de8a0'};if(p>=75)return{g:'A',bg:'rgba(0,229,255,0.18)',col:'#7dd8f0'};if(p>=60)return{g:'B',bg:'rgba(247,201,72,0.12)',col:'#f7c948'};if(p>=50)return{g:'C',bg:'rgba(251,146,60,0.12)',col:'#fb923c'};if(p>=35)return{g:'D',bg:'rgba(247,90,90,0.12)',col:'#f87171'};return{g:'F',bg:'rgba(239,68,68,0.18)',col:'#ef4444'}; }
+
+// ── API KEY ──────────────────────────────────────────────────
+function getApiKey(){ return localStorage.getItem('neurolyth_apikey')||''; }
+function saveApiKey(){
+  const k = document.getElementById('ai-api-key').value.trim();
+  if(!k){ return; }
+  localStorage.setItem('neurolyth_apikey', k);
+  document.getElementById('key-ok').style.display='block';
+  document.getElementById('ai-api-key').value='';
+  setTimeout(()=>{ document.getElementById('key-ok').style.display='none'; }, 2500);
+}
+
+// Load key indicator on open
+function refreshKeyUI(){
+  const k = getApiKey();
+  if(k){ document.getElementById('ai-api-key').placeholder = '••••••••••••• (saved)'; }
+}
+
+// ── QUIZ ────────────────────────────────────────────────────
+let quizData = null, quizQ = 0, quizAnswers = {}, quizAnswered = {};
+let quizFile = null;
+
+// File drop
+const qDrop = document.getElementById('quiz-drop');
+const qFile = document.getElementById('quiz-file');
+qDrop.addEventListener('dragover', e=>{ e.preventDefault(); qDrop.classList.add('drag-over'); });
+qDrop.addEventListener('dragleave', ()=>qDrop.classList.remove('drag-over'));
+qDrop.addEventListener('drop', e=>{ e.preventDefault(); qDrop.classList.remove('drag-over'); if(e.dataTransfer.files[0]) handleQuizFile(e.dataTransfer.files[0]); });
+qFile.addEventListener('change', e=>{ if(e.target.files[0]) handleQuizFile(e.target.files[0]); });
+
+function handleQuizFile(file){
+  const allowed=['pdf','jpg','jpeg','png','txt','doc','docx'];
+  const ext=file.name.split('.').pop().toLowerCase();
+  if(!allowed.includes(ext)) return;
+  quizFile=file;
+  const icons={pdf:'📄',jpg:'🖼',jpeg:'🖼',png:'🖼',txt:'📝',doc:'📃',docx:'📃'};
+  const prev=document.getElementById('quiz-file-preview');
+  prev.style.display='flex';
+  prev.innerHTML=`<span>${icons[ext]||'📎'}</span><span class="fc-name">${file.name}</span><button class="fc-remove" onclick="clearQuizFile()">×</button>`;
+}
+
+async function generateQuiz(){
+  const key = getApiKey();
+  if(!key){ document.getElementById('quiz-key-banner').style.display='block'; return; }
+  document.getElementById('quiz-key-banner').style.display='none';
+
+  const text = document.getElementById('quiz-text').value.trim();
+  if(!text && !quizFile){ alert('Please enter a topic, paste text, or upload a file.'); return; }
+
+  const numQ = document.getElementById('quiz-num').value;
+  const diff = document.getElementById('quiz-diff').value;
+  const btn  = document.getElementById('gen-quiz-btn');
+  btn.disabled=true;
+
+  document.getElementById('quiz-loading').style.display='block';
+  document.getElementById('quiz-play').style.display='none';
+  document.getElementById('quiz-score').style.display='none';
+
+  const prompt = `You are a quiz generator. Create exactly ${numQ} multiple-choice questions at ${diff} difficulty.
+Respond ONLY with valid JSON, no markdown, no extra text.
+Format:
+{"title":"Short quiz title","questions":[{"question":"Question text","options":["A","B","C","D"],"correct":0,"explanation":"Why this answer is correct"}]}
+Rules: "correct" is 0-based index. Exactly 4 options per question. Make questions test genuine understanding.`;
+
+  try {
+    let messages;
+    if(quizFile){
+      const ext=quizFile.name.split('.').pop().toLowerCase();
+      const b64=await toB64(quizFile);
+      if(['jpg','jpeg','png'].includes(ext)){
+        messages=[{role:'user',content:[{type:'image',source:{type:'base64',media_type:ext==='png'?'image/png':'image/jpeg',data:b64}},{type:'text',text:prompt}]}];
+      } else if(ext==='pdf'){
+        messages=[{role:'user',content:[{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},{type:'text',text:prompt}]}];
+      } else {
+        const txt=await readText(quizFile);
+        messages=[{role:'user',content:`Content:\n${txt.substring(0,12000)}\n\n${prompt}`}];
+      }
+    } else {
+      messages=[{role:'user',content:`Topic/Content:\n${text}\n\n${prompt}`}];
+    }
+
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
+      body:JSON.stringify({model:'claude-opus-4-5',max_tokens:4000,messages})
+    });
+    const data=await res.json();
+    if(data.error) throw new Error(data.error.message);
+    const raw=data.content.map(b=>b.text||'').join('');
+    quizData=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    if(!quizData.questions?.length) throw new Error('No questions generated.');
+    quizQ=0; quizAnswers={}; quizAnswered={};
+    document.getElementById('quiz-loading').style.display='none';
+    document.getElementById('quiz-play').style.display='block';
+    renderQuizQuestion();
+  } catch(e){
+    document.getElementById('quiz-loading').style.display='none';
+    alert('Error: '+e.message);
+  }
+  btn.disabled=false;
+}
+
+function renderQuizQuestion(){
+  const q=quizData.questions[quizQ];
+  const total=quizData.questions.length;
+  const letters=['A','B','C','D'];
+  const isAns=quizAnswered[quizQ]!==undefined;
+  const pct=((quizQ+1)/total*100).toFixed(0);
+
+  const opts=q.options.map((o,i)=>{
+    let cls='q-opt';
+    if(isAns){
+      if(i===q.correct) cls += ' reveal';
+      if(i===quizAnswered[quizQ] && i!==q.correct) cls+=' wrong';
+      if(i===quizAnswered[quizQ] && i===q.correct) cls+=' correct';
+    }
+    return `<button class="${cls}" ${isAns?'disabled':''} onclick="answerQuiz(${i})">
+      <span class="q-letter">${letters[i]}</span>${o}
+    </button>`;
+  }).join('');
+
+  document.getElementById('quiz-play').innerHTML=`
+    <div class="quiz-play-wrap">
+      <div class="quiz-play-header">
+        <div class="quiz-play-title">${quizData.title}</div>
+        <div class="quiz-play-meta">${quizQ+1} / ${total}</div>
+      </div>
+      <div class="qprogress"><div class="qprogress-fill" style="width:${pct}%"></div></div>
+      <div class="q-card">
+        <div class="q-num">Question ${quizQ+1}</div>
+        <div class="q-text">${q.question}</div>
+        <div class="q-options">${opts}</div>
+        ${isAns?`<div class="q-explanation">💡 ${q.explanation}</div>`:''}
+      </div>
+      <div class="q-nav">
+        <button class="q-nav-btn" onclick="quizNav(-1)" ${quizQ===0?'disabled':''}>← Prev</button>
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)">${Object.keys(quizAnswered).length}/${total} answered</span>
+        ${quizQ<total-1
+          ?`<button class="q-nav-btn" onclick="quizNav(1)">Next →</button>`
+          :`<button class="q-nav-btn finish" onclick="finishQuiz()">Finish Quiz</button>`}
+      </div>
+    </div>`;
+}
+
+function answerQuiz(i){
+  if(quizAnswered[quizQ]!==undefined) return;
+  quizAnswered[quizQ]=i; quizAnswers[quizQ]=i;
+  renderQuizQuestion();
+}
+window.answerQuiz=answerQuiz;
+
+function quizNav(d){ quizQ=Math.max(0,Math.min(quizData.questions.length-1,quizQ+d)); renderQuizQuestion(); }
+window.quizNav=quizNav;
+
+function finishQuiz(){
+  const total=quizData.questions.length;
+  const correct=quizData.questions.filter((q,i)=>quizAnswers[i]===q.correct).length;
+  const pct=Math.round(correct/total*100);
+  const cls=pct>=80?'great':pct>=50?'ok':'poor';
+  const desc=pct>=80?'Excellent work!':pct>=50?'Good effort!':'Keep studying!';
+  document.getElementById('quiz-play').style.display='none';
+  document.getElementById('quiz-score').style.display='block';
+  document.getElementById('quiz-score').innerHTML=`
+    <div class="score-wrap">
+      <div class="score-label">Your Score</div>
+      <div class="score-big ${cls}">${pct}%</div>
+      <div class="score-desc">${desc}</div>
+      <div class="score-sub">${correct} correct out of ${total} questions</div>
+      <div class="score-actions">
+        <button class="score-btn primary" onclick="retryQuiz()">Try Again</button>
+        <button class="score-btn secondary" onclick="newQuiz()">New Quiz</button>
+      </div>
+    </div>`;
+}
+window.finishQuiz=finishQuiz;
+
+function retryQuiz(){ quizQ=0;quizAnswers={};quizAnswered={};document.getElementById('quiz-score').style.display='none';document.getElementById('quiz-play').style.display='block';renderQuizQuestion(); }
+function newQuiz(){ quizData=null;quizQ=0;quizAnswers={};quizAnswered={};document.getElementById('quiz-score').style.display='none';document.getElementById('quiz-play').style.display='none'; }
+window.retryQuiz=retryQuiz; window.newQuiz=newQuiz;
+
+function toB64(file){ return new Promise((r,j)=>{ const rd=new FileReader(); rd.onload=()=>r(rd.result.split(',')[1]); rd.onerror=()=>j(new Error('Read error')); rd.readAsDataURL(file); }); }
+function readText(file){ return new Promise((r,j)=>{ const rd=new FileReader(); rd.onload=()=>r(rd.result); rd.onerror=()=>j(new Error('Read error')); rd.readAsText(file); }); }
+
+// ── AI CHAT ──────────────────────────────────────────────────
+let aiHistory=[];
+
+const aiInput=document.getElementById('ai-input');
+aiInput.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendAiMessage(); } });
+aiInput.addEventListener('input',()=>{ aiInput.style.height='auto'; aiInput.style.height=Math.min(aiInput.scrollHeight,120)+'px'; });
+
+async function sendAiMessage(){
+  const key=getApiKey();
+  const msg=aiInput.value.trim();
+  if(!msg) return;
+  if(!key){ appendMsg('assistant','⚠ Please save your Anthropic API key above first.'); return; }
+
+  appendMsg('user',msg);
+  aiHistory.push({role:'user',content:msg});
+  aiInput.value=''; aiInput.style.height='auto';
+
+  const typingEl=appendMsg('assistant','Thinking…',true);
+  document.getElementById('ai-send-btn').disabled=true;
+
+  try {
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
+      body:JSON.stringify({
+        model:'claude-opus-4-5',max_tokens:1024,
+        system:'You are a helpful, friendly student study assistant called Neurolyth AI. Be concise and clear. Use simple language. You help with school subjects, homework, and studying.',
+        messages:aiHistory
+      })
+    });
+    const data=await res.json();
+    if(data.error) throw new Error(data.error.message);
+    const reply=data.content.map(b=>b.text||'').join('');
+    typingEl.classList.remove('typing');
+    typingEl.querySelector('.ai-bubble').textContent=reply;
+    aiHistory.push({role:'assistant',content:reply});
+  } catch(e){
+    typingEl.querySelector('.ai-bubble').textContent='Error: '+e.message;
+  }
+  document.getElementById('ai-send-btn').disabled=false;
+  scrollChat();
+}
+
+function appendMsg(role,text,typing=false){
+  const wrap=document.getElementById('ai-messages');
+  const div=document.createElement('div');
+  div.className=`ai-msg ${role}${typing?' typing':''}`;
+  div.innerHTML=`<div class="ai-bubble">${text}</div>`;
+  wrap.appendChild(div);
+  scrollChat();
+  return div;
+}
+
+function scrollChat(){ const m=document.getElementById('ai-messages'); m.scrollTop=m.scrollHeight; }
+
