@@ -707,8 +707,10 @@ async function geminiGenerate(prompt, file, systemText=''){
 
   const payload = {
     contents,
-    systemInstruction: systemText ? { parts: [{ text: systemText }] } : undefined,
   };
+  if (systemText) {
+    payload.systemInstruction = { parts: [{ text: systemText }] };
+  }
 
   const res = await fetch('/api/gemini',{
     method:'POST',
@@ -718,7 +720,7 @@ async function geminiGenerate(prompt, file, systemText=''){
   const raw = await res.text();
   let data;
   try {
-    data = raw ? JSON.parse(raw) : { error: { message: 'Empty response from the AI proxy.' } };
+    data = raw ? JSON.parse(raw) : { error: { message: `Empty response from the AI proxy (HTTP ${res.status}).` } };
   } catch {
     data = { error: { message: raw || `AI proxy returned HTTP ${res.status}.` } };
   }
