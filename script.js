@@ -28,7 +28,6 @@ document.querySelectorAll('.tnav-btn').forEach(t => {
     t.classList.add('active');
     document.getElementById('panel-'+t.dataset.tab).classList.add('active');
     if(t.dataset.tab==='progress') renderProgress();
-    if(t.dataset.tab==='ai') refreshKeyUI();
   });
 });
 
@@ -646,7 +645,6 @@ document.getElementById('logout-btn').addEventListener('click', doLogout);
 document.getElementById('google-login-btn').addEventListener('click', doGoogleSignIn);
 document.getElementById('google-signup-btn').addEventListener('click', doGoogleSignIn);
 document.getElementById('gen-quiz-btn').addEventListener('click', generateQuiz);
-document.getElementById('save-key-btn').addEventListener('click', saveApiKey);
 document.getElementById('ai-send-btn').addEventListener('click', sendAiMessage);
 
 document.getElementById('login-pass').addEventListener('keydown',  e=>{ if(e.key==='Enter') doLogin(); });
@@ -667,21 +665,61 @@ function clearQuizFile(){ quizFile=null; document.getElementById('quiz-file-prev
 function pctColor(p){ if(p>=90)return'#3de8a0';if(p>=75)return'#00e5ff';if(p>=60)return'#f7c948';if(p>=35)return'#fb923c';return'#f75a5a'; }
 function grade(p){ if(p>=90)return{g:'A+',bg:'rgba(61,232,160,0.15)',col:'#3de8a0'};if(p>=75)return{g:'A',bg:'rgba(0,229,255,0.18)',col:'#7dd8f0'};if(p>=60)return{g:'B',bg:'rgba(247,201,72,0.12)',col:'#f7c948'};if(p>=50)return{g:'C',bg:'rgba(251,146,60,0.12)',col:'#fb923c'};if(p>=35)return{g:'D',bg:'rgba(247,90,90,0.12)',col:'#f87171'};return{g:'F',bg:'rgba(239,68,68,0.18)',col:'#ef4444'}; }
 
-// ── API KEY ──────────────────────────────────────────────────
-function getApiKey(){ return localStorage.getItem('neurolyth_apikey')||''; }
-function saveApiKey(){
-  const k = document.getElementById('ai-api-key').value.trim();
-  if(!k){ return; }
-  localStorage.setItem('neurolyth_apikey', k);
-  document.getElementById('key-ok').style.display='block';
-  document.getElementById('ai-api-key').value='';
-  setTimeout(()=>{ document.getElementById('key-ok').style.display='none'; }, 2500);
+function buildGeminiContents(prompt, file){
+  if(!file){
+    return [{ parts: [{ text: prompt }] }];
+  }
+  const ext=file.name.split('.').pop().toLowerCase();
+  if(['jpg','jpeg','png'].includes(ext)){
+    return [{
+      parts: [
+        { inline_data: { mime_type: ext==='png' ? 'image/png' : 'image/jpeg', data: null } },
+        { text: prompt }
+      ]
+    }];
+  }
+  if(ext==='pdf'){
+    return [{
+      parts: [
+        { inline_data: { mime_type: 'application/pdf', data: null } },
+        { text: prompt }
+      ]
+    }];
+  }
+  return [{ parts: [{ text: prompt }] }];
 }
 
-// Load key indicator on open
-function refreshKeyUI(){
-  const k = getApiKey();
-  if(k){ document.getElementById('ai-api-key').placeholder = '••••••••••••• (saved)'; }
+async function geminiGenerate(prompt, file, systemText=''){
+  const contents = buildGeminiContents(prompt, file);
+  if(file){
+    const ext=file.name.split('.').pop().toLowerCase();
+    const b64 = await toB64(file);
+    if(contents[0]?.parts?.[0]?.inline_data){
+      contents[0].parts[0].inline_data.data = b64;
+    } else if(!['txt','doc','docx'].includes(ext)){
+      contents[0].parts.unshift({ text: `File name: ${file.name}\n` });
+    }
+    if(['txt','doc','docx'].includes(ext)){
+      const txt = await readText(file);
+      contents[0] = { parts: [{ text: `Content:\n${txt.substring(0,12000)}\n\n${prompt}` }] };
+    }
+  }
+
+  const payload = {
+    contents,
+    systemInstruction: systemText ? { parts: [{ text: systemText }] } : undefined,
+  };
+
+  const res = await fetch('/api/gemini',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if(data.error) throw new Error(data.error.message || 'Gemini request failed.');
+  const text = data.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')?.trim();
+  if(!text) throw new Error('Empty response from Gemini.');
+  return text;
 }
 
 // ── QUIZ ────────────────────────────────────────────────────
@@ -708,10 +746,6 @@ function handleQuizFile(file){
 }
 
 async function generateQuiz(){
-  const key = getApiKey();
-  if(!key){ document.getElementById('quiz-key-banner').style.display='block'; return; }
-  document.getElementById('quiz-key-banner').style.display='none';
-
   const text = document.getElementById('quiz-text').value.trim();
   if(!text && !quizFile){ alert('Please enter a topic, paste text, or upload a file.'); return; }
 
@@ -731,30 +765,11 @@ Format:
 Rules: "correct" is 0-based index. Exactly 4 options per question. Make questions test genuine understanding.`;
 
   try {
-    let messages;
-    if(quizFile){
-      const ext=quizFile.name.split('.').pop().toLowerCase();
-      const b64=await toB64(quizFile);
-      if(['jpg','jpeg','png'].includes(ext)){
-        messages=[{role:'user',content:[{type:'image',source:{type:'base64',media_type:ext==='png'?'image/png':'image/jpeg',data:b64}},{type:'text',text:prompt}]}];
-      } else if(ext==='pdf'){
-        messages=[{role:'user',content:[{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},{type:'text',text:prompt}]}];
-      } else {
-        const txt=await readText(quizFile);
-        messages=[{role:'user',content:`Content:\n${txt.substring(0,12000)}\n\n${prompt}`}];
-      }
-    } else {
-      messages=[{role:'user',content:`Topic/Content:\n${text}\n\n${prompt}`}];
-    }
-
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
-      body:JSON.stringify({model:'claude-opus-4-5',max_tokens:4000,messages})
-    });
-    const data=await res.json();
-    if(data.error) throw new Error(data.error.message);
-    const raw=data.content.map(b=>b.text||'').join('');
+    const raw = await geminiGenerate(
+      `Topic/Content:\n${text}\n\n${prompt}`,
+      quizFile,
+      'You are a quiz generator. Return only valid JSON. No markdown.'
+    );
     quizData=JSON.parse(raw.replace(/```json|```/g,'').trim());
     if(!quizData.questions?.length) throw new Error('No questions generated.');
     quizQ=0; quizAnswers={}; quizAnswered={};
@@ -857,10 +872,8 @@ aiInput.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.prev
 aiInput.addEventListener('input',()=>{ aiInput.style.height='auto'; aiInput.style.height=Math.min(aiInput.scrollHeight,120)+'px'; });
 
 async function sendAiMessage(){
-  const key=getApiKey();
   const msg=aiInput.value.trim();
   if(!msg) return;
-  if(!key){ appendMsg('assistant','⚠ Please save your Anthropic API key above first.'); return; }
 
   appendMsg('user',msg);
   aiHistory.push({role:'user',content:msg});
@@ -870,18 +883,11 @@ async function sendAiMessage(){
   document.getElementById('ai-send-btn').disabled=true;
 
   try {
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-allow-browser':'true'},
-      body:JSON.stringify({
-        model:'claude-opus-4-5',max_tokens:1024,
-        system:'You are a helpful, friendly student study assistant called Neurolyth AI. Be concise and clear. Use simple language. You help with school subjects, homework, and studying.',
-        messages:aiHistory
-      })
-    });
-    const data=await res.json();
-    if(data.error) throw new Error(data.error.message);
-    const reply=data.content.map(b=>b.text||'').join('');
+    const reply = await geminiGenerate(
+      aiHistory.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n'),
+      null,
+      'You are a helpful, friendly student study assistant called Neurolyth AI. Be concise and clear. Use simple language. You help with school subjects, homework, and studying.'
+    );
     typingEl.classList.remove('typing');
     typingEl.querySelector('.ai-bubble').textContent=reply;
     aiHistory.push({role:'assistant',content:reply});
