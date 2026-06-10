@@ -715,7 +715,13 @@ async function geminiGenerate(prompt, file, systemText=''){
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify(payload)
   });
-  const data = await res.json();
+  const raw = await res.text();
+  let data;
+  try {
+    data = raw ? JSON.parse(raw) : { error: { message: 'Empty response from the AI proxy.' } };
+  } catch {
+    data = { error: { message: raw || `AI proxy returned HTTP ${res.status}.` } };
+  }
   if(data.error) throw new Error(data.error.message || 'Gemini request failed.');
   const text = data.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')?.trim();
   if(!text) throw new Error('Empty response from Gemini.');

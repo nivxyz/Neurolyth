@@ -57,7 +57,7 @@ const server = http.createServer(async (req, res) => {
       if (!geminiKey) return send(res, 500, { error: { message: 'GEMINI_API_KEY is not configured.' } });
 
       const body = await readJson(req);
-      const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent', {
+      const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,7 +65,13 @@ const server = http.createServer(async (req, res) => {
         },
         body: JSON.stringify(body)
       });
-      const data = await upstream.json();
+      const raw = await upstream.text();
+      let data;
+      try {
+        data = raw ? JSON.parse(raw) : { error: { message: 'Empty response from Gemini.' } };
+      } catch {
+        data = { error: { message: raw || `Gemini returned HTTP ${upstream.status}.` } };
+      }
       res.writeHead(upstream.status, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(data));
     } catch (err) {
