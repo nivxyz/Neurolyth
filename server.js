@@ -72,6 +72,14 @@ const server = http.createServer(async (req, res) => {
       } catch {
         data = { error: { message: raw || `Gemini returned HTTP ${upstream.status}.` } };
       }
+      if (!upstream.ok && !data.error) {
+        data = {
+          error: {
+            message: data?.message || raw || `Gemini returned HTTP ${upstream.status}.`,
+            status: upstream.status
+          }
+        };
+      }
       res.writeHead(upstream.status, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(data));
     } catch (err) {

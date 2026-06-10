@@ -722,6 +722,9 @@ async function geminiGenerate(prompt, file, systemText=''){
   } catch {
     data = { error: { message: raw || `AI proxy returned HTTP ${res.status}.` } };
   }
+  if (!res.ok && data?.error && data.error.status == null) {
+    data.error.status = res.status;
+  }
   if(data.error) throw new Error(data.error.message || 'Gemini request failed.');
   const text = data.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')?.trim();
   if(!text) throw new Error('Empty response from Gemini.');
