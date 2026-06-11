@@ -608,7 +608,11 @@ select.form-input option{background:#0a1525;}
   border:1.5px dashed var(--border);
   border-radius:16px;
 }
-.empty-tasks .empty-icon{font-size:36px;display:block;margin-bottom:12px;opacity:0.5;}
+.tasks-loading{
+  text-align:center;padding:40px 0;
+  font-size:13px;color:var(--muted);
+  opacity:0.6;letter-spacing:0.02em;
+}
 
 /* ══════════════════════════════
    MARKS PANEL
@@ -666,7 +670,8 @@ select.form-input option{background:#0a1525;}
   width:36px;height:36px;border-radius:10px;
   background:var(--surface2);
   display:flex;align-items:center;justify-content:center;
-  font-size:16px;flex-shrink:0;
+  font-size:11px;font-weight:700;letter-spacing:0.01em;
+  color:rgba(255,255,255,0.5);flex-shrink:0;
 }
 .s-name{flex:1;font-size:13px;font-weight:500;color:rgba(255,255,255,.7);}
 .mark-input{
@@ -778,7 +783,6 @@ select.form-input option{background:#0a1525;}
   border:1.5px dashed var(--border);
   border-radius:20px;
 }
-.prog-empty .prog-empty-icon{font-size:40px;display:block;margin-bottom:16px;opacity:0.4;}
 
 .prog-chips-row{
   display:flex;gap:12px;flex-wrap:wrap;margin-bottom:32px;
@@ -837,6 +841,7 @@ textarea.form-input{resize:vertical;min-height:100px;line-height:1.6;}
 .quiz-file-types{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;}
 .ftype{background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;color:var(--muted);}
 .quiz-file-chip{display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:14px;}
+.quiz-file-chip .fc-ext{font-size:10px;font-weight:700;letter-spacing:0.06em;color:rgba(255,255,255,0.45);background:rgba(255,255,255,0.07);border-radius:6px;padding:3px 7px;flex-shrink:0;}
 .quiz-file-chip .fc-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .quiz-file-chip .fc-remove{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 4px;transition:color 0.2s;}
 .quiz-file-chip .fc-remove:hover{color:var(--red);}

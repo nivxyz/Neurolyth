@@ -33,26 +33,6 @@ document.querySelectorAll('.tnav-btn').forEach(t => {
 
 // ── TODO ────────────────────────────────────────────────────
 let tasks=[], selectedPriority='high';
-const TASKS_STORAGE_KEY = 'neurolyth_tasks';
-
-function loadTasksFromLocalStorage(){
-  try {
-    const raw = localStorage.getItem(TASKS_STORAGE_KEY);
-    if(!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveTasksToLocalStorage(){
-  try {
-    localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
-  } catch {
-    // Ignore storage failures and keep Firestore as the primary source.
-  }
-}
 
 document.querySelectorAll('.pri-btn').forEach(b=>{
   b.addEventListener('click',()=>{
@@ -70,7 +50,6 @@ function addTask(){
   const subject=document.getElementById('task-subject').value;
   const deadline=document.getElementById('task-deadline').value;
   tasks.push({id:Date.now(),text,priority:selectedPriority,subject,deadline,done:false});
-  saveTasksToLocalStorage();
   saveTaskToFirestore(tasks[tasks.length-1]);
   document.getElementById('task-input').value='';
   document.getElementById('task-deadline').value='';
@@ -83,7 +62,6 @@ function toggleTask(id){
   const t=tasks.find(t=>t.id===id);
   if(t){
     t.done=!t.done;
-    saveTasksToLocalStorage();
     saveTaskToFirestore(t);
     renderTasks();
     updateTodoStats();
@@ -92,7 +70,7 @@ function toggleTask(id){
 
 function removeTask(id){
   const el=document.querySelector(`[data-id="${id}"]`);
-  if(el){ el.classList.add('removing'); setTimeout(()=>{tasks=tasks.filter(t=>t.id!==id); saveTasksToLocalStorage(); deleteTaskFromFirestore(id); renderTasks();updateTodoStats();},260); }
+  if(el){ el.classList.add('removing'); setTimeout(()=>{tasks=tasks.filter(t=>t.id!==id); deleteTaskFromFirestore(id); renderTasks();updateTodoStats();},260); }
 }
 
 const PRIORITY_ORDER={high:0,medium:1,low:2};
@@ -110,7 +88,7 @@ function deadlineInfo(dl){
 
 function renderTasks(){
   const tl=document.getElementById('task-list');
-  [...tl.querySelectorAll('.task-item')].forEach(e=>e.remove());
+  [...tl.querySelectorAll('.task-item,.tasks-loading')].forEach(e=>e.remove());
   document.getElementById('empty-msg').style.display=tasks.length?'none':'block';
 
   const sorted=[...tasks].sort((a,b)=>{
@@ -167,11 +145,11 @@ function updateTodoStats(){
 
 // ── MARKS ───────────────────────────────────────────────────
 const subjectDefs=[
-  {name:'Maths',icon:'📐',key:'math'},
-  {name:'Science',icon:'🔬',key:'sci'},
-  {name:'English',icon:'📖',key:'eng'},
-  {name:'Social Science',icon:'🌍',key:'soc'},
-  {name:'Kannada',icon:'✍️',key:'kan'},
+  {name:'Maths',icon:'M',key:'math'},
+  {name:'Science',icon:'Sc',key:'sci'},
+  {name:'English',icon:'En',key:'eng'},
+  {name:'Social Science',icon:'SS',key:'soc'},
+  {name:'Kannada',icon:'Ka',key:'kan'},
 ];
 const exams=[{label:'PT-1',max:40},{label:'HY',max:80},{label:'PT-2',max:40},{label:'AE',max:80}];
 
@@ -489,14 +467,9 @@ onAuthStateChanged(auth, async (user) => {
     const name = user.displayName || user.email.split('@')[0];
     enterApp(name);
     loadUserData().then(() => {
-      renderTasks();
-      updateTodoStats();
       loadMarksFromFirestore();
-      if (document.querySelector('.tnav-btn[data-tab="progress"]')?.classList.contains('active')) {
-        renderProgress();
-      }
     }).catch(e => {
-      console.log('User data load delayed or blocked:', e);
+      console.log('User data load failed:', e);
     });
   } else {
     currentUser = null;
@@ -531,8 +504,6 @@ function enterApp(name){
         if (++j >= name.length) { clearInterval(iv); setTimeout(() => { greetCur.style.display = 'none'; }, 1200); }
       }, 60);
     }));
-    renderTasks();
-    updateTodoStats();
   }, 360);
 }
 
@@ -549,20 +520,20 @@ async function deleteTaskFromFirestore(id){
 
 async function loadUserData(){
   if(!currentUser) return;
-  // Load tasks
-  const localTasks = loadTasksFromLocalStorage();
-  tasks = [...localTasks];
-  renderTasks(); updateTodoStats();
+  tasks = [];
+  const tl = document.getElementById('task-list');
+  if(tl) tl.innerHTML = '<div class="tasks-loading">Syncing tasks…</div>';
   try {
     const snap = await getDocs(collection(db, 'users', currentUser.uid, 'tasks'));
     const remoteTasks = [];
     snap.forEach(d => remoteTasks.push(d.data()));
     remoteTasks.sort((a,b) => a.id - b.id);
     tasks = remoteTasks;
-    saveTasksToLocalStorage();
   } catch(e) {
-    console.log('Task sync unavailable, using local cache:', e);
+    console.log('Could not load tasks from Firestore:', e);
   }
+  renderTasks();
+  updateTodoStats();
 }
 
 // ── FIRESTORE: MARKS ────────────────────────────────────────
@@ -750,10 +721,9 @@ function handleQuizFile(file){
   const ext=file.name.split('.').pop().toLowerCase();
   if(!allowed.includes(ext)) return;
   quizFile=file;
-  const icons={pdf:'📄',jpg:'🖼',jpeg:'🖼',png:'🖼',txt:'📝',doc:'📃',docx:'📃'};
   const prev=document.getElementById('quiz-file-preview');
   prev.style.display='flex';
-  prev.innerHTML=`<span>${icons[ext]||'📎'}</span><span class="fc-name">${file.name}</span><button class="fc-remove" onclick="clearQuizFile()">×</button>`;
+  prev.innerHTML=`<span class="fc-ext">${ext.toUpperCase()}</span><span class="fc-name">${file.name}</span><button class="fc-remove" onclick="clearQuizFile()">×</button>`;
 }
 
 async function generateQuiz(){
