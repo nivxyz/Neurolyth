@@ -57,7 +57,7 @@ const server = http.createServer(async (req, res) => {
       if (!geminiKey) return send(res, 500, { error: { message: 'GEMINI_API_KEY is not configured.' } });
 
       const body = await readJson(req);
-      const upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`, {
+      const upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(geminiKey)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
