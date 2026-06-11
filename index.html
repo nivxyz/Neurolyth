@@ -174,29 +174,46 @@
           <p>Enter your scores for each exam and see your performance at a glance.</p>
         </div>
 
-        <div class="exam-selector" id="exam-tabs"></div>
-        <div class="exam-scroll">
-          <div id="exam-panels"></div>
-        </div>
-        <div class="err-msg" id="err-msg"></div>
-        <div class="calc-row">
-          <button class="calc-btn primary" id="calc-btn-single">Calculate This Exam</button>
-          <button class="calc-btn secondary" id="calc-btn-all">Calculate All Exams</button>
+        <!-- Exam builder -->
+        <div class="setup-section" id="marks-setup-wrap">
+          <div class="setup-header-bar">
+            <span class="setup-header-title">Exam Setup</span>
+            <div class="setup-header-actions">
+              <button id="setup-save-btn" class="setup-save-btn" style="display:none">Save</button>
+              <button id="setup-toggle-btn" class="setup-toggle-btn">Hide</button>
+            </div>
+          </div>
+          <div id="marks-setup-body">
+            <div id="setup-exams-list"></div>
+            <button id="setup-add-exam-btn" class="setup-add-exam-btn">+ Add Exam</button>
+          </div>
         </div>
 
-        <div id="results-section">
-          <div class="exam-summary-row" id="exam-summary"></div>
-          <div class="results-grid">
-            <div class="res-card"><div class="res-card-label">Total Score</div><div class="res-card-val sm" id="res-total"></div></div>
-            <div class="res-card"><div class="res-card-label">Percentage</div><div class="res-card-val" id="res-pct"></div></div>
+        <!-- Marks entry (shown once exams are configured) -->
+        <div id="marks-entry-wrap" style="display:none">
+          <div class="exam-selector" id="exam-tabs"></div>
+          <div class="exam-scroll">
+            <div id="exam-panels"></div>
           </div>
-          <div class="grade-banner">
-            <span class="grade-banner-label">Overall Grade</span>
-            <span class="grade-pill" id="res-grade"></span>
+          <div class="err-msg" id="err-msg"></div>
+          <div class="calc-row">
+            <button class="calc-btn primary" id="calc-btn-single">Calculate This Exam</button>
+            <button class="calc-btn secondary" id="calc-btn-all">Calculate All Exams</button>
           </div>
-          <div class="bars-section">
-            <div class="bars-title">Per Subject Breakdown</div>
-            <div id="bars"></div>
+          <div id="results-section" style="display:none">
+            <div class="exam-summary-row" id="exam-summary"></div>
+            <div class="results-grid">
+              <div class="res-card"><div class="res-card-label">Total Score</div><div class="res-card-val sm" id="res-total"></div></div>
+              <div class="res-card"><div class="res-card-label">Percentage</div><div class="res-card-val" id="res-pct"></div></div>
+            </div>
+            <div class="grade-banner">
+              <span class="grade-banner-label">Overall Grade</span>
+              <span class="grade-pill" id="res-grade"></span>
+            </div>
+            <div class="bars-section">
+              <div class="bars-title">Per Subject Breakdown</div>
+              <div id="bars"></div>
+            </div>
           </div>
         </div>
       </div>

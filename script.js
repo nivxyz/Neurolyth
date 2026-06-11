@@ -143,63 +143,171 @@ function updateTodoStats(){
     +(low?`<span><span class="stat-dot" style="background:var(--red)"></span>${low} low</span>`:'');
 }
 
-// ── MARKS ───────────────────────────────────────────────────
-const subjectDefs=[
-  {name:'Maths',icon:'M',key:'math'},
-  {name:'Science',icon:'Sc',key:'sci'},
-  {name:'English',icon:'En',key:'eng'},
-  {name:'Social Science',icon:'SS',key:'soc'},
-  {name:'Kannada',icon:'Ka',key:'kan'},
-];
-const exams=[{label:'PT-1',max:40},{label:'HY',max:80},{label:'PT-2',max:40},{label:'AE',max:80}];
+// ── MARKS (DYNAMIC) ─────────────────────────────────────────
+let userExams = []; // [{ id, label, subjects:[{ id, name, max }] }]
+let userMarks = {}; // { examId: { subjectId: value|null } }
+let activeExamIdx = 0;
+let setupDirty = false;
+let setupOpen = true;
 
-const examTabsEl=document.getElementById('exam-tabs');
-const examPanelsEl=document.getElementById('exam-panels');
+function genId(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
 
-exams.forEach((ex,ei)=>{
-  const btn=document.createElement('button');
-  btn.className='etab'+(ei===0?' active':''); btn.dataset.ei=ei;
-  btn.innerHTML=`${ex.label}<span class="etab-sub">Out of ${ex.max}</span>`;
-  btn.addEventListener('click',()=>switchExamTab(ei)); examTabsEl.appendChild(btn);
+// ── SETUP PANEL ──────────────────────────────────────────────
+function renderSetup(){
+  const list = document.getElementById('setup-exams-list');
+  if(!list) return;
+  list.innerHTML = '';
+  userExams.forEach((exam, ei) => {
+    const card = document.createElement('div');
+    card.className = 'setup-exam-card';
 
-  const panel=document.createElement('div');
-  panel.className='epanel'+(ei===0?' active':''); panel.id=`epanel-${ei}`;
-  const grid=document.createElement('div'); grid.className='subjects-grid';
+    const hdr = document.createElement('div');
+    hdr.className = 'setup-exam-hdr';
+    const nameInp = document.createElement('input');
+    nameInp.className = 'setup-exam-name'; nameInp.value = exam.label;
+    nameInp.placeholder = 'Exam name (e.g. SA-1)';
+    nameInp.addEventListener('input', () => { userExams[ei].label = nameInp.value; markDirty(); });
+    const delExamBtn = document.createElement('button');
+    delExamBtn.className = 'setup-del-exam'; delExamBtn.textContent = 'Remove';
+    delExamBtn.addEventListener('click', () => { userExams.splice(ei,1); renderSetup(); renderMarks(); markDirty(); });
+    hdr.append(nameInp, delExamBtn);
 
-  subjectDefs.forEach(s=>{
-    const iid=`inp-${ei}-${s.key}`;
-    const row=document.createElement('div'); row.className='subject-row';
-    row.innerHTML=`<div class="s-icon">${s.icon}</div>
-      <div class="s-name">${s.name}</div>
-      <input class="mark-input" id="${iid}" type="number" min="0" max="${ex.max}" placeholder="—" autocomplete="off"/>
-      <span class="out-of">/${ex.max}</span>
-      <span class="pct-badge" id="badge-${ei}-${s.key}">—</span>`;
-    grid.appendChild(row);
-  });
-  panel.appendChild(grid); examPanelsEl.appendChild(panel);
-});
-
-exams.forEach((ex,ei)=>{
-  subjectDefs.forEach(s=>{
-    const iid=`inp-${ei}-${s.key}`;
-    document.getElementById(iid).addEventListener('input',()=>{
-      const inp=document.getElementById(iid); let v=parseFloat(inp.value);
-      if(!isNaN(v)&&v>ex.max){v=ex.max;inp.value=ex.max;}
-      const badge=document.getElementById(`badge-${ei}-${s.key}`);
-      if(!isNaN(v)&&v>=0){ badge.textContent=(v/ex.max*100).toFixed(1)+'%'; badge.style.color=pctColor(v/ex.max*100); inp.classList.remove('error'); }
-      else{ badge.textContent='—'; badge.style.color=''; }
+    const subjsEl = document.createElement('div');
+    subjsEl.className = 'setup-subjects';
+    exam.subjects.forEach((s, si) => {
+      const row = document.createElement('div');
+      row.className = 'setup-subj-row';
+      const sNameInp = document.createElement('input');
+      sNameInp.className = 'setup-subj-name'; sNameInp.value = s.name; sNameInp.placeholder = 'Subject';
+      sNameInp.addEventListener('input', () => { userExams[ei].subjects[si].name = sNameInp.value; markDirty(); });
+      const sep = document.createElement('span');
+      sep.className = 'setup-sep'; sep.textContent = 'out of';
+      const maxInp = document.createElement('input');
+      maxInp.className = 'setup-subj-max'; maxInp.type = 'number';
+      maxInp.min = '1'; maxInp.max = '1000'; maxInp.value = s.max; maxInp.placeholder = '100';
+      maxInp.addEventListener('input', () => {
+        const v = parseInt(maxInp.value);
+        if(!isNaN(v) && v > 0){ userExams[ei].subjects[si].max = v; markDirty(); }
+      });
+      const delBtn = document.createElement('button');
+      delBtn.className = 'setup-del-subj'; delBtn.textContent = '×';
+      delBtn.addEventListener('click', () => { userExams[ei].subjects.splice(si,1); renderSetup(); renderMarks(); markDirty(); });
+      row.append(sNameInp, sep, maxInp, delBtn);
+      subjsEl.appendChild(row);
     });
-  });
-});
 
-function switchExamTab(ei){
-  document.querySelectorAll('.etab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.epanel').forEach(p=>p.classList.remove('active'));
-  document.querySelector(`.etab[data-ei="${ei}"]`).classList.add('active');
-  document.getElementById(`epanel-${ei}`).classList.add('active');
+    const addSubjBtn = document.createElement('button');
+    addSubjBtn.className = 'setup-add-subj'; addSubjBtn.textContent = '+ Add Subject';
+    addSubjBtn.addEventListener('click', () => {
+      userExams[ei].subjects.push({ id: genId(), name: '', max: 100 });
+      renderSetup();
+      const inputs = card.querySelectorAll('.setup-subj-name');
+      if(inputs.length) inputs[inputs.length-1].focus();
+      markDirty();
+    });
+
+    card.append(hdr, subjsEl, addSubjBtn);
+    list.appendChild(card);
+  });
+  const saveBtn = document.getElementById('setup-save-btn');
+  if(saveBtn) saveBtn.style.display = setupDirty ? 'inline-flex' : 'none';
 }
 
-function readAllVals(){ return exams.map((ex,ei)=>subjectDefs.map(s=>{ const v=parseFloat(document.getElementById(`inp-${ei}-${s.key}`).value); return isNaN(v)?null:Math.min(v,ex.max); })); }
+function markDirty(){
+  setupDirty = true;
+  const saveBtn = document.getElementById('setup-save-btn');
+  if(saveBtn) saveBtn.style.display = 'inline-flex';
+}
+
+document.getElementById('setup-add-exam-btn').addEventListener('click', () => {
+  userExams.push({ id: genId(), label: '', subjects: [] });
+  renderSetup();
+  const inputs = document.querySelectorAll('.setup-exam-name');
+  if(inputs.length) inputs[inputs.length-1].focus();
+  markDirty();
+});
+
+document.getElementById('setup-save-btn').addEventListener('click', async () => {
+  await saveExamConfig();
+  setupDirty = false;
+  const saveBtn = document.getElementById('setup-save-btn');
+  if(saveBtn) saveBtn.style.display = 'none';
+  renderMarks();
+});
+
+document.getElementById('setup-toggle-btn').addEventListener('click', () => {
+  setupOpen = !setupOpen;
+  document.getElementById('marks-setup-body').style.display = setupOpen ? 'block' : 'none';
+  document.getElementById('setup-toggle-btn').textContent = setupOpen ? 'Hide' : 'Show';
+});
+
+// ── MARKS ENTRY ──────────────────────────────────────────────
+function renderMarks(){
+  const tabsEl = document.getElementById('exam-tabs');
+  const panelsEl = document.getElementById('exam-panels');
+  const entryWrap = document.getElementById('marks-entry-wrap');
+  document.getElementById('results-section').style.display = 'none';
+
+  if(!userExams.some(e => e.subjects.length > 0)){ entryWrap.style.display = 'none'; return; }
+  entryWrap.style.display = 'block';
+  if(activeExamIdx >= userExams.length) activeExamIdx = 0;
+
+  tabsEl.innerHTML = '';
+  panelsEl.innerHTML = '';
+
+  userExams.forEach((exam, ei) => {
+    if(!exam.subjects.length) return;
+    const btn = document.createElement('button');
+    btn.className = 'etab' + (ei === activeExamIdx ? ' active' : '');
+    btn.dataset.ei = ei;
+    btn.innerHTML = `${exam.label||'Untitled'}<span class="etab-sub">${exam.subjects.length} subject${exam.subjects.length!==1?'s':''}</span>`;
+    btn.addEventListener('click', () => {
+      activeExamIdx = ei;
+      document.querySelectorAll('.etab').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.epanel').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(`epanel-${ei}`)?.classList.add('active');
+    });
+    tabsEl.appendChild(btn);
+
+    const panel = document.createElement('div');
+    panel.className = 'epanel' + (ei === activeExamIdx ? ' active' : '');
+    panel.id = `epanel-${ei}`;
+    const grid = document.createElement('div');
+    grid.className = 'subjects-grid';
+
+    exam.subjects.forEach(s => {
+      const mv = userMarks[exam.id]?.[s.id];
+      const row = document.createElement('div'); row.className = 'subject-row';
+      const icon = document.createElement('div'); icon.className = 's-icon';
+      icon.textContent = (s.name.trim()||'?').substring(0,2);
+      const sname = document.createElement('div'); sname.className = 's-name';
+      sname.textContent = s.name || 'Unnamed';
+      const inp = document.createElement('input');
+      inp.className = 'mark-input'; inp.id = `inp-${exam.id}-${s.id}`;
+      inp.type = 'number'; inp.min = '0'; inp.max = s.max;
+      inp.placeholder = '—'; inp.autocomplete = 'off';
+      if(mv !== null && mv !== undefined) inp.value = mv;
+      const outOf = document.createElement('span'); outOf.className = 'out-of';
+      outOf.textContent = `/${s.max}`;
+      const badge = document.createElement('span'); badge.className = 'pct-badge';
+      badge.id = `badge-${exam.id}-${s.id}`;
+      if(mv !== null && mv !== undefined){ badge.textContent=(mv/s.max*100).toFixed(1)+'%'; badge.style.color=pctColor(mv/s.max*100); }
+      else badge.textContent = '—';
+      inp.addEventListener('input', () => {
+        let v = parseFloat(inp.value);
+        if(!isNaN(v)&&v>s.max){ v=s.max; inp.value=s.max; }
+        if(!userMarks[exam.id]) userMarks[exam.id]={};
+        userMarks[exam.id][s.id] = isNaN(v)?null:v;
+        if(!isNaN(v)&&v>=0){ badge.textContent=(v/s.max*100).toFixed(1)+'%'; badge.style.color=pctColor(v/s.max*100); inp.classList.remove('error'); }
+        else{ badge.textContent='—'; badge.style.color=''; }
+      });
+      row.append(icon,sname,inp,outOf,badge);
+      grid.appendChild(row);
+    });
+    panel.appendChild(grid); panelsEl.appendChild(panel);
+  });
+}
 
 function showResults(scored,maxTotal,pct,examCards,barData){
   const g=grade(pct);
@@ -207,7 +315,6 @@ function showResults(scored,maxTotal,pct,examCards,barData){
   document.getElementById('res-total').textContent=`${scored} / ${maxTotal}`;
   document.getElementById('res-pct').textContent=pct.toFixed(2)+'%';
   const pill=document.getElementById('res-grade'); pill.textContent=g.g; pill.style.background=g.bg; pill.style.color=g.col;
-
   const sumEl=document.getElementById('exam-summary'); sumEl.innerHTML='';
   examCards.forEach(ec=>{
     const p=(ec.scored/ec.max*100).toFixed(1);
@@ -215,7 +322,6 @@ function showResults(scored,maxTotal,pct,examCards,barData){
     card.innerHTML=`<div class="escard-label">${ec.label}</div><div class="escard-val">${ec.scored}/${ec.max}</div><div class="escard-pct" style="color:${pctColor(p)}">${p}%</div>`;
     sumEl.appendChild(card);
   });
-
   const barsEl=document.getElementById('bars'); barsEl.innerHTML='';
   barData.forEach(b=>{
     const row=document.createElement('div'); row.className='bar-row';
@@ -223,8 +329,7 @@ function showResults(scored,maxTotal,pct,examCards,barData){
     barsEl.appendChild(row);
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
       const bf=document.getElementById(`bf-${b.key}`);
-      bf.style.width=b.pct+'%';
-      bf.style.background=`linear-gradient(90deg,${pctColor(b.pct)},${pctColor(b.pct)}99)`;
+      bf.style.width=b.pct+'%'; bf.style.background=`linear-gradient(90deg,${pctColor(b.pct)},${pctColor(b.pct)}99)`;
     }));
   });
   rs.scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -232,49 +337,88 @@ function showResults(scored,maxTotal,pct,examCards,barData){
 
 document.getElementById('calc-btn-single').addEventListener('click',()=>{
   document.getElementById('err-msg').textContent='';
-  const ei=parseInt(document.querySelector('.etab.active').dataset.ei); const ex=exams[ei]; let valid=true;
-  const vals=subjectDefs.map(s=>{
-    const inp=document.getElementById(`inp-${ei}-${s.key}`); const v=inp.value.trim(); const n=parseFloat(v);
-    if(v===''||isNaN(n)||n<0||n>ex.max){inp.classList.add('error');valid=false;return null;}
-    inp.classList.remove('error');return n;
+  const exam = userExams[activeExamIdx]; if(!exam) return;
+  let valid = true;
+  const vals = exam.subjects.map(s=>{
+    const inp = document.getElementById(`inp-${exam.id}-${s.id}`); if(!inp){valid=false;return null;}
+    const v=inp.value.trim(); const n=parseFloat(v);
+    if(v===''||isNaN(n)||n<0||n>s.max){inp.classList.add('error');valid=false;return null;}
+    inp.classList.remove('error'); return {val:n,max:s.max,name:s.name,key:s.id};
   });
-  if(!valid){document.getElementById('err-msg').textContent=`Fill in all marks for ${ex.label} (0–${ex.max}).`;return;}
+  if(!valid){document.getElementById('err-msg').textContent=`Fill in all marks for ${exam.label||'this exam'}.`;return;}
   saveMarksToFirestore();
-  const scored=vals.reduce((a,b)=>a+b,0), maxTotal=ex.max*subjectDefs.length, pct=scored/maxTotal*100;
-  showResults(scored,maxTotal,pct,[{label:ex.label,scored,max:maxTotal}],subjectDefs.map((s,i)=>({name:s.name,key:s.key,pct:(vals[i]/ex.max*100).toFixed(1)})));
+  const scored=vals.reduce((a,b)=>a+b.val,0), maxTotal=vals.reduce((a,b)=>a+b.max,0);
+  showResults(scored,maxTotal,scored/maxTotal*100,[{label:exam.label||'Exam',scored,max:maxTotal}],vals.map(v=>({name:v.name,key:v.key,pct:(v.val/v.max*100).toFixed(1)})));
 });
 
 document.getElementById('calc-btn-all').addEventListener('click',()=>{
   document.getElementById('err-msg').textContent=''; let allValid=true;
-  const examVals=exams.map((ex,ei)=>subjectDefs.map(s=>{
-    const inp=document.getElementById(`inp-${ei}-${s.key}`); const v=inp.value.trim(); const n=parseFloat(v);
-    if(v===''||isNaN(n)||n<0||n>ex.max){inp.classList.add('error');allValid=false;return null;}
-    inp.classList.remove('error');return n;
-  }));
+  const examTotals=[]; const subjSums={};
+  userExams.forEach(exam=>{
+    if(!exam.subjects.length) return;
+    let scored=0,max=0;
+    exam.subjects.forEach(s=>{
+      const inp=document.getElementById(`inp-${exam.id}-${s.id}`); if(!inp){allValid=false;return;}
+      const v=inp.value.trim(); const n=parseFloat(v);
+      if(v===''||isNaN(n)||n<0||n>s.max){inp.classList.add('error');allValid=false;return;}
+      inp.classList.remove('error'); scored+=n; max+=s.max;
+      if(!subjSums[s.name]) subjSums[s.name]={scored:0,max:0};
+      subjSums[s.name].scored+=n; subjSums[s.name].max+=s.max;
+    });
+    if(max>0) examTotals.push({label:exam.label||'Exam',scored,max});
+  });
   if(!allValid){document.getElementById('err-msg').textContent='Fill in all marks correctly across every exam.';return;}
+  if(!examTotals.length) return;
   saveMarksToFirestore();
-  const examTotals=exams.map((ex,ei)=>({label:ex.label,max:ex.max*subjectDefs.length,scored:examVals[ei].reduce((a,b)=>a+b,0)}));
-  const grandMax=examTotals.reduce((a,e)=>a+e.max,0), grandScored=examTotals.reduce((a,e)=>a+e.scored,0);
-  showResults(grandScored,grandMax,(grandScored/grandMax)*100,examTotals,subjectDefs.map((s,si)=>({name:s.name,key:s.key,pct:((exams.reduce((a,ex,ei)=>a+examVals[ei][si],0)/exams.reduce((a,ex)=>a+ex.max,0))*100).toFixed(1)})));
+  const grandScored=examTotals.reduce((a,e)=>a+e.scored,0), grandMax=examTotals.reduce((a,e)=>a+e.max,0);
+  const barData=Object.entries(subjSums).map(([name,d],i)=>({name,key:'s'+i,pct:(d.scored/d.max*100).toFixed(1)}));
+  showResults(grandScored,grandMax,grandScored/grandMax*100,examTotals,barData);
 });
 
 // ── PROGRESS ────────────────────────────────────────────────
 const SUBJ_COLORS=['#00e5ff','#3de8a0','#f7c948','#f76ab4','#4fa8f7'];
 
 function renderProgress(){
-  const allVals=readAllVals();
-  const filledExams=exams.map((ex,ei)=>({label:ex.label,max:ex.max,ei,vals:allVals[ei],hasData:allVals[ei].some(v=>v!==null)})).filter(e=>e.hasData);
-  if(!filledExams.length){
+  const examData = userExams
+    .filter(e=>e.subjects.length>0)
+    .map(e=>{
+      const vals=e.subjects.map(s=>{ const v=userMarks[e.id]?.[s.id]; return (v!==null&&v!==undefined)?v:null; });
+      return {label:e.label||'Untitled',exam:e,vals,hasData:vals.some(v=>v!==null)};
+    })
+    .filter(e=>e.hasData);
+
+  if(!examData.length){
     document.getElementById('prog-empty').style.display='block';
     document.getElementById('prog-content').style.display='none';
     return;
   }
   document.getElementById('prog-empty').style.display='none';
   document.getElementById('prog-content').style.display='block';
-  const overallPcts=filledExams.map(e=>{ const f=e.vals.filter(v=>v!==null); return parseFloat((f.reduce((a,b)=>a+b,0)/(f.length*e.max)*100).toFixed(1)); });
-  const subjPcts=subjectDefs.map((s,si)=>filledExams.map(e=>e.vals[si]!==null?parseFloat((e.vals[si]/e.max*100).toFixed(1)):null));
-  const labels=filledExams.map(e=>e.label);
-  drawOverallChart(labels,overallPcts); drawSubjChart(labels,subjPcts); drawChips(filledExams,overallPcts);
+
+  const labels=examData.map(e=>e.label);
+  const overallPcts=examData.map(e=>{
+    const pairs=e.exam.subjects.map((s,i)=>({max:s.max,val:e.vals[i]})).filter(p=>p.val!==null);
+    if(!pairs.length) return 0;
+    return parseFloat((pairs.reduce((a,p)=>a+p.val,0)/pairs.reduce((a,p)=>a+p.max,0)*100).toFixed(1));
+  });
+
+  const allSubjNames=[...new Set(examData.flatMap(e=>e.exam.subjects.map(s=>s.name)))].slice(0,5);
+  const subjPcts=allSubjNames.map(name=>
+    examData.map(e=>{
+      const si=e.exam.subjects.findIndex(s=>s.name===name);
+      if(si===-1||e.vals[si]===null) return null;
+      return parseFloat((e.vals[si]/e.exam.subjects[si].max*100).toFixed(1));
+    })
+  );
+
+  const legendEl=document.getElementById('subj-legend'); legendEl.innerHTML='';
+  allSubjNames.forEach((name,i)=>{
+    const li=document.createElement('div'); li.className='legend-item';
+    li.innerHTML=`<div class="legend-dot" style="background:${SUBJ_COLORS[i%SUBJ_COLORS.length]}"></div>${name}`;
+    legendEl.appendChild(li);
+  });
+
+  drawOverallChart(labels,overallPcts); drawSubjChart(labels,subjPcts); drawChips(examData,overallPcts);
 }
 
 function drawOverallChart(labels,data){
@@ -340,8 +484,8 @@ function drawSubjChart(labels,subjPcts){
     ctx.fillText(v+'%',pad.left-8,y+4);
   });
 
-  subjectDefs.forEach((s,si)=>{
-    const color=SUBJ_COLORS[si]; const pts=subjPcts[si];
+  subjPcts.forEach((pts,si)=>{
+    const color=SUBJ_COLORS[si%SUBJ_COLORS.length];
     const vp=pts.map((v,i)=>v!==null?{x:pad.left+(n>1?i*step:cw/2),y:pad.top+ch-(v/100)*ch}:null).filter(Boolean);
     if(!vp.length)return;
     if(vp.length===1){ ctx.beginPath(); ctx.arc(vp[0].x,vp[0].y,5,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); return; }
@@ -354,13 +498,6 @@ function drawSubjChart(labels,subjPcts){
     const x=pad.left+(n>1?i*step:cw/2);
     ctx.fillStyle='rgba(255,255,255,.3)'; ctx.font='11px DM Mono,monospace'; ctx.textAlign='center';
     ctx.fillText(l,x,pad.top+ch+22);
-  });
-
-  const legendEl=document.getElementById('subj-legend'); legendEl.innerHTML='';
-  subjectDefs.forEach((s,si)=>{
-    const li=document.createElement('div'); li.className='legend-item';
-    li.innerHTML=`<div class="legend-dot" style="background:${SUBJ_COLORS[si]}"></div>${s.name}`;
-    legendEl.appendChild(li);
   });
 }
 
@@ -466,11 +603,10 @@ onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     const name = user.displayName || user.email.split('@')[0];
     enterApp(name);
-    loadUserData().then(() => {
-      loadMarksFromFirestore();
-    }).catch(e => {
-      console.log('User data load failed:', e);
-    });
+    loadUserData()
+      .then(() => loadExamConfig())
+      .then(() => loadMarksFromFirestore())
+      .catch(e => { console.log('User data load failed:', e); });
   } else {
     currentUser = null;
     document.body.classList.remove('auth-loading');
@@ -537,37 +673,34 @@ async function loadUserData(){
 }
 
 // ── FIRESTORE: MARKS ────────────────────────────────────────
+async function saveExamConfig(){
+  if(!currentUser) return;
+  try { await setDoc(doc(db,'users',currentUser.uid,'data','examConfig'),{exams:userExams}); }
+  catch(e){ console.log('Failed to save exam config:',e); }
+}
+
+async function loadExamConfig(){
+  if(!currentUser) return;
+  try {
+    const snap = await getDoc(doc(db,'users',currentUser.uid,'data','examConfig'));
+    if(snap.exists()) userExams = snap.data().exams || [];
+  } catch(e){ console.log('No exam config:',e); }
+}
+
 async function saveMarksToFirestore(){
   if(!currentUser) return;
-  const marksData = {};
-  exams.forEach((ex, ei) => {
-    marksData[`exam_${ei}`] = {};
-    subjectDefs.forEach(s => {
-      const v = parseFloat(document.getElementById(`inp-${ei}-${s.key}`).value);
-      marksData[`exam_${ei}`][s.key] = isNaN(v) ? null : v;
-    });
-  });
-  await setDoc(doc(db, 'users', currentUser.uid, 'data', 'marks'), marksData);
+  try { await setDoc(doc(db,'users',currentUser.uid,'data','marks'),{marks:userMarks}); }
+  catch(e){ console.log('Failed to save marks:',e); }
 }
 
 async function loadMarksFromFirestore(){
   if(!currentUser) return;
   try {
-    const snap = await getDoc(doc(db, 'users', currentUser.uid, 'data', 'marks'));
-    if(!snap.exists()) return;
-    const data = snap.data();
-    exams.forEach((ex, ei) => {
-      subjectDefs.forEach(s => {
-        const v = data[`exam_${ei}`]?.[s.key];
-        const inp = document.getElementById(`inp-${ei}-${s.key}`);
-        if(inp && v !== null && v !== undefined){
-          inp.value = v;
-          const badge = document.getElementById(`badge-${ei}-${s.key}`);
-          if(badge){ badge.textContent = (v/ex.max*100).toFixed(1)+'%'; badge.style.color = pctColor(v/ex.max*100); }
-        }
-      });
-    });
-  } catch(e){ console.log('No marks yet'); }
+    const snap = await getDoc(doc(db,'users',currentUser.uid,'data','marks'));
+    if(snap.exists()) userMarks = snap.data().marks || {};
+  } catch(e){ console.log('No marks yet:',e); }
+  renderSetup();
+  renderMarks();
 }
 
 // ── FIREBASE ERROR MESSAGES ─────────────────────────────────
