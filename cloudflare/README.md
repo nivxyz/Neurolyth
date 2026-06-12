@@ -1,8 +1,13 @@
 # Neurolyth AI proxy (Cloudflare Worker)
 
-This Worker keeps the Gemini API key secret so the AI works on the static
-GitHub Pages site. Deploy it once via the Cloudflare dashboard — no credit
-card, no CLI needed.
+This Worker keeps the AI API key secret so the AI works on the static
+GitHub Pages site. It uses **Groq** (free, no card) and translates between
+the app's Gemini-style format and Groq's API, so the frontend is unchanged.
+Deploy it once via the Cloudflare dashboard — no CLI needed.
+
+Get a free Groq API key at <https://console.groq.com/keys> (no credit card).
+Store it in the Worker secret named `GEMINI_API_KEY` (the name is kept for
+continuity — its value is the Groq key).
 
 ## Deploy (dashboard, ~3 minutes)
 

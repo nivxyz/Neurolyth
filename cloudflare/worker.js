@@ -1,12 +1,17 @@
-// Neurolyth — Gemini proxy running on Cloudflare Workers.
+// Neurolyth — AI proxy running on Cloudflare Workers (Groq backend).
 //
-// Why: GitHub Pages is static-only, so it can't keep the Gemini API key
-// secret. This Worker holds the key as a secret env var (GEMINI_API_KEY)
-// and forwards requests to Google, so the key never reaches the browser.
+// Why Groq: Google's Gemini free tier returns limit:0 in some regions, so
+// we use Groq's free API (Llama 3.3) instead — fast and genuinely free, no
+// card required.
 //
-// Deploy: see cloudflare/README.md. After deploying, copy the worker URL
-// (https://<name>.<your-subdomain>.workers.dev) into GEMINI_PROXY_URL in
-// script.js.
+// The frontend still speaks the Gemini request/response shape, so this
+// Worker translates Gemini <-> OpenAI/Groq in both directions. That means
+// no frontend changes were needed.
+//
+// Secret: set GEMINI_API_KEY on the Worker to your **Groq** API key
+// (console.groq.com/keys). The variable name is kept for continuity.
+//
+// Deploy: see cloudflare/README.md.
 
 const ALLOWED_ORIGINS = [
   'https://nivxyz.github.io',
@@ -14,7 +19,8 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:3000',
 ];
 
-const MODEL = 'gemini-2.0-flash';
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const MODEL = 'llama-3.3-70b-versatile';
 
 function corsHeaders(origin) {
   const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
@@ -33,6 +39,25 @@ function json(obj, status, origin) {
   });
 }
 
+// Pull all text out of the Gemini-style request body.
+function geminiToMessages(body) {
+  const messages = [];
+
+  const sysParts = body?.systemInstruction?.parts || [];
+  const sysText = sysParts.map((p) => p.text || '').join('\n').trim();
+  if (sysText) messages.push({ role: 'system', content: sysText });
+
+  const contents = Array.isArray(body?.contents) ? body.contents : [];
+  const userText = contents
+    .flatMap((c) => (c.parts || []).map((p) => p.text || ''))
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+  messages.push({ role: 'user', content: userText || 'Hello' });
+
+  return messages;
+}
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('Origin') || '';
@@ -44,9 +69,9 @@ export default {
       return json({ error: { message: 'Method not allowed' } }, 405, origin);
     }
 
-    const apiKey = env.GEMINI_API_KEY;
+    const apiKey = env.GEMINI_API_KEY; // holds the Groq key
     if (!apiKey) {
-      return json({ error: { message: 'GEMINI_API_KEY is not configured on the Worker.' } }, 500, origin);
+      return json({ error: { message: 'API key is not configured on the Worker.' } }, 500, origin);
     }
 
     let body;
@@ -57,31 +82,37 @@ export default {
     }
 
     try {
-      const upstream = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        }
-      );
+      const upstream = await fetch(GROQ_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          messages: geminiToMessages(body),
+          temperature: 0.7,
+        }),
+      });
 
       const raw = await upstream.text();
       let data;
       try {
-        data = raw ? JSON.parse(raw) : { error: { message: 'Empty response from Gemini.' } };
+        data = raw ? JSON.parse(raw) : null;
       } catch {
-        data = { error: { message: raw || `Gemini returned HTTP ${upstream.status}.` } };
+        data = null;
       }
-      if (!upstream.ok) {
-        data = {
-          error: {
-            message: data?.error?.message || data?.message || raw || `Gemini returned HTTP ${upstream.status}.`,
-            status: upstream.status,
-          },
-        };
+
+      if (!upstream.ok || !data) {
+        const message =
+          data?.error?.message || data?.error || raw || `AI provider returned HTTP ${upstream.status}.`;
+        return json({ error: { message, status: upstream.status } }, upstream.status || 502, origin);
       }
-      return json(data, upstream.status, origin);
+
+      // Translate Groq/OpenAI response back into the Gemini shape the app expects.
+      const text = data?.choices?.[0]?.message?.content || '';
+      const gemini = { candidates: [{ content: { parts: [{ text }] } }] };
+      return json(gemini, 200, origin);
     } catch (err) {
       return json({ error: { message: err.message || 'Proxy request failed.' } }, 500, origin);
     }
