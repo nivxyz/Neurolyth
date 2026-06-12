@@ -228,11 +228,25 @@ document.getElementById('setup-add-exam-btn').addEventListener('click', () => {
 });
 
 document.getElementById('setup-save-btn').addEventListener('click', async () => {
-  await saveExamConfig();
-  setupDirty = false;
   const saveBtn = document.getElementById('setup-save-btn');
-  if(saveBtn) saveBtn.style.display = 'none';
-  renderMarks();
+  const statusEl = document.getElementById('setup-status');
+  if(!currentUser){
+    if(statusEl){ statusEl.textContent = 'Not signed in — cannot save.'; statusEl.className = 'setup-status err'; }
+    return;
+  }
+  saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+  if(statusEl){ statusEl.textContent = ''; statusEl.className = 'setup-status'; }
+  try {
+    await saveExamConfig();
+    setupDirty = false;
+    saveBtn.style.display = 'none';
+    if(statusEl){ statusEl.textContent = 'Saved'; statusEl.className = 'setup-status ok'; setTimeout(()=>{ if(statusEl.textContent==='Saved') statusEl.textContent=''; }, 2500); }
+    renderMarks();
+  } catch(e){
+    if(statusEl){ statusEl.textContent = 'Save failed: ' + (e?.message || e); statusEl.className = 'setup-status err'; }
+  } finally {
+    saveBtn.disabled = false; saveBtn.textContent = 'Save';
+  }
 });
 
 document.getElementById('setup-toggle-btn').addEventListener('click', () => {
@@ -674,9 +688,8 @@ async function loadUserData(){
 
 // ── FIRESTORE: MARKS ────────────────────────────────────────
 async function saveExamConfig(){
-  if(!currentUser) return;
-  try { await setDoc(doc(db,'users',currentUser.uid,'data','examConfig'),{exams:userExams}); }
-  catch(e){ console.log('Failed to save exam config:',e); }
+  if(!currentUser) throw new Error('Not signed in');
+  await setDoc(doc(db,'users',currentUser.uid,'data','examConfig'),{exams:userExams});
 }
 
 async function loadExamConfig(){
