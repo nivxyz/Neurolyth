@@ -199,7 +199,7 @@ body::after {
 .lp-feature-card:hover .lp-feature-hint{opacity:1;transform:translateY(0);}
 
 /* AI showcase */
-.lp-ai-section{position:relative;overflow:hidden;}
+.lp-ai-section{position:relative;overflow:hidden;max-width:1240px;}
 .lp-ai-glow{
   position:absolute;width:560px;height:560px;border-radius:50%;right:-120px;top:10%;
   background:radial-gradient(circle,rgba(59,130,246,0.2),transparent 62%);filter:blur(50px);z-index:-1;
@@ -214,7 +214,7 @@ body::after {
 .lp-ai-dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.14);}
 .lp-ai-demo-title{margin-left:8px;font-size:13px;font-weight:600;color:rgba(255,255,255,0.7);}
 .lp-ai-badge{margin-left:auto;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent2);border:1px solid rgba(59,130,246,0.35);background:rgba(59,130,246,0.1);border-radius:20px;padding:3px 10px;}
-.lp-ai-demo-body{padding:22px;display:flex;flex-direction:column;gap:13px;min-height:340px;max-height:480px;overflow-y:auto;}
+.lp-ai-demo-body{padding:24px;display:flex;flex-direction:column;gap:14px;min-height:440px;max-height:560px;overflow-y:auto;}
 .lp-ai-demo-body::-webkit-scrollbar{width:5px;}
 .lp-ai-demo-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:5px;}
 .lp-ai-line{font-size:14px;line-height:1.55;padding:12px 15px;border-radius:14px;max-width:85%;word-break:break-word;}

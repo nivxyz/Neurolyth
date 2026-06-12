@@ -42,15 +42,22 @@ function initLandingScroll(){
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     svg.style.height = H + 'px';
 
-    const cx   = W / 2;
-    const amp  = Math.min(W * 0.30, 300);   // how far it swings left/right
-    const waves = Math.max(2.5, H / 620);   // roughly one bend per section
-    const freq = waves * Math.PI * 2 / H;
-    const step = 14;
+    const cx  = W / 2;
+    const amp = Math.min(W * 0.34, 340);    // how far it swings left/right
+    // Layered waves at non-integer frequency ratios => organic, non-repeating
+    // bends that look random but stay stable across resizes.
+    const base = Math.max(4, H / 440) * Math.PI * 2 / H;  // more bends overall
+    const f1 = base, f2 = base * 2.37, f3 = base * 0.61, f4 = base * 4.13;
+    const step = 11;
 
     let d = '';
     for(let y = 0; y <= H; y += step){
-      const x = cx + amp * Math.sin(y * freq);
+      const wobble =
+          0.58 * Math.sin(y * f1)
+        + 0.24 * Math.sin(y * f2 + 1.3)
+        + 0.18 * Math.sin(y * f3 + 2.1)
+        + 0.11 * Math.sin(y * f4 + 0.7);
+      const x = cx + amp * wobble;
       d += (y === 0 ? `M ${x.toFixed(1)} 0` : ` L ${x.toFixed(1)} ${y.toFixed(1)}`);
     }
     bgPath.setAttribute('d', d);
