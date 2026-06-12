@@ -935,9 +935,22 @@ function buildGeminiContents(prompt, file){
   return [{ parts: [{ text: prompt }] }];
 }
 
-// AI features are offline until a serverless proxy is reconnected.
-// GitHub Pages is static-only, so there is no /api/gemini backend.
-const AI_ENABLED = false;
+// Cloudflare Worker that proxies Gemini (keeps the API key secret).
+// Deploy cloudflare/worker.js, then paste its URL here to enable the AI.
+const GEMINI_PROXY_URL = ''; // e.g. 'https://neurolyth-ai.<you>.workers.dev'
+const AI_ENABLED = !!GEMINI_PROXY_URL;
+
+// Show the real AI/Quiz UI when the proxy is configured; otherwise the
+// "offline" notices stay and the chat/builder stay hidden.
+function applyAiAvailability(){
+  document.querySelectorAll('#panel-ai .feature-offline, #panel-quiz .feature-offline')
+    .forEach(el => { el.style.display = AI_ENABLED ? 'none' : ''; });
+  const chat = document.querySelector('#panel-ai .ai-chat-wrap');
+  if(chat) chat.style.display = AI_ENABLED ? 'flex' : 'none';
+  const builder = document.querySelector('#panel-quiz .quiz-builder');
+  if(builder) builder.style.display = AI_ENABLED ? 'block' : 'none';
+}
+applyAiAvailability();
 
 async function geminiGenerate(prompt, file, systemText=''){
   if(!AI_ENABLED){
@@ -965,7 +978,7 @@ async function geminiGenerate(prompt, file, systemText=''){
     payload.systemInstruction = { parts: [{ text: systemText }] };
   }
 
-  const res = await fetch('/api/gemini',{
+  const res = await fetch(GEMINI_PROXY_URL,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify(payload)
