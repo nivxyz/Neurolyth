@@ -33,11 +33,12 @@ function initLandingScroll(){
 
   // Several lines, each weaving with its own waves/phase so they cross and
   // feel organic. Frequency ratios are non-integer so nothing repeats.
+  // Clean uniform sine curves, just phase-shifted so they weave together.
   const LINE_CONFIGS = [
-    { color:'url(#spineGrad)', glow:'rgba(255,77,109,0.45)', width:2.8, dot:6,   ampMul:1.00, cxOff: 0.00, phase:0.0, fmul:[1,2.37,0.61,4.13], coef:[0.58,0.30,0.20,0.13] },
-    { color:'#4fa8f7',         glow:'rgba(79,168,247,0.45)', width:1.8, dot:4,   ampMul:0.78, cxOff: 0.06, phase:1.7, fmul:[1.3,2.0,3.1,0.5],  coef:[0.50,0.34,0.18,0.12] },
-    { color:'#8b5cf6',         glow:'rgba(139,92,246,0.45)', width:1.6, dot:4,   ampMul:1.20, cxOff:-0.06, phase:3.4, fmul:[0.8,1.9,2.7,4.5],  coef:[0.55,0.26,0.20,0.12] },
-    { color:'#00e5a0',         glow:'rgba(0,229,160,0.4)',   width:1.4, dot:3.5, ampMul:0.60, cxOff: 0.03, phase:5.0, fmul:[1.6,0.7,3.3,2.1],  coef:[0.52,0.32,0.22,0.13] },
+    { color:'url(#spineGrad)', glow:'rgba(255,77,109,0.45)', width:2.8, dot:6,   phase:0.0 },
+    { color:'#4fa8f7',         glow:'rgba(79,168,247,0.45)', width:1.8, dot:4,   phase:0.6 },
+    { color:'#8b5cf6',         glow:'rgba(139,92,246,0.45)', width:1.6, dot:4,   phase:1.2 },
+    { color:'#00e5a0',         glow:'rgba(0,229,160,0.4)',   width:1.4, dot:3.5, phase:1.8 },
   ];
   let lines = [];
 
@@ -76,20 +77,16 @@ function initLandingScroll(){
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     svg.style.height = H + 'px';
 
-    const cx   = W / 2;
-    const amp  = Math.min(W * 0.30, 320);
-    const base = Math.max(5, H / 380) * Math.PI * 2 / H;  // lots of bends
-    const step = 10;
+    const cx    = W / 2;
+    const amp   = Math.min(W * 0.26, 280);
+    const waves = Math.max(2.5, H / 640);          // uniform wavelength
+    const freq  = waves * Math.PI * 2 / H;
+    const step  = 12;
 
     lines.forEach(line => {
-      const cfg = line.cfg;
       let d = '';
       for(let y = 0; y <= H; y += step){
-        let w = 0;
-        for(let k=0; k<cfg.fmul.length; k++){
-          w += cfg.coef[k] * Math.sin(y * base * cfg.fmul[k] + cfg.phase + k*0.7);
-        }
-        const x = cx + W*cfg.cxOff + amp*cfg.ampMul*w;
+        const x = cx + amp * Math.sin(y * freq + line.cfg.phase);
         d += (y === 0 ? `M ${x.toFixed(1)} 0` : ` L ${x.toFixed(1)} ${y.toFixed(1)}`);
       }
       line.bg.setAttribute('d', d);
