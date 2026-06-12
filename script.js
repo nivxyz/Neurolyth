@@ -78,14 +78,22 @@ function initLandingScroll(){
 
   function rebuild(){ buildPath(); onScroll(); }
 
+  // Layout/fonts may not be settled when this first runs — retry until the
+  // page has a real height and the path actually has length.
+  function ensureBuilt(tries){
+    rebuild();
+    if((pathLen < 50 || landing.scrollHeight < 300) && tries > 0){
+      setTimeout(() => ensureBuilt(tries - 1), 120);
+    }
+  }
+
   let resizeT;
   window.addEventListener('scroll', onScroll, { passive:true });
   window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(rebuild, 150); });
   window.addEventListener('load', rebuild);
 
-  buildPath();
-  onScroll();
-  setTimeout(rebuild, 350); // recompute once fonts/layout settle
+  requestAnimationFrame(() => ensureBuilt(10));
+  setTimeout(rebuild, 500); // final recompute once fonts/layout settle
 
   const obs = new IntersectionObserver((entries) => {
     entries.forEach(e => { if(e.isIntersecting){ e.target.classList.add('in'); obs.unobserve(e.target); } });

@@ -79,12 +79,12 @@ body::after {
   position:absolute;top:0;left:0;width:100%;height:100%;
   z-index:0;pointer-events:none;overflow:visible;
 }
-#scroll-path-bg{stroke:rgba(255,255,255,0.07);stroke-width:2;stroke-linecap:round;}
+#scroll-path-bg{stroke:rgba(255,255,255,0.16);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;}
 #scroll-path-fill{
-  stroke:url(#spineGrad);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;
-  filter:drop-shadow(0 0 6px rgba(255,77,109,0.45));
+  stroke:#ff4d6d;stroke:url(#spineGrad);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;
+  filter:drop-shadow(0 0 7px rgba(255,77,109,0.55));
 }
-#scroll-path-dot{filter:drop-shadow(0 0 9px rgba(255,77,109,0.9));}
+#scroll-path-dot{filter:drop-shadow(0 0 10px rgba(255,77,109,0.95));}
 
 /* keep landing content above the weaving line */
 .lp-nav,.lp-hero,.lp-section,.lp-final,.lp-footer{position:relative;z-index:1;}
