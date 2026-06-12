@@ -1155,7 +1155,7 @@ async function sendAiMessage(){
   aiHistory.push({role:'user',content:msg});
   aiInput.value=''; aiInput.style.height='auto';
 
-  const typingEl=appendMsg('assistant','Thinking…',true);
+  const typingEl=appendMsg('assistant','',true);
   document.getElementById('ai-send-btn').disabled=true;
 
   try {
@@ -1165,9 +1165,10 @@ async function sendAiMessage(){
       'You are a helpful, friendly student study assistant called Neurolyth AI. Be concise and clear. Use simple language. You help with school subjects, homework, and studying.'
     );
     typingEl.classList.remove('typing');
-    typingEl.querySelector('.ai-bubble').textContent=reply;
     aiHistory.push({role:'assistant',content:reply});
+    await typeWriter(typingEl.querySelector('.ai-bubble'), reply);
   } catch(e){
+    typingEl.classList.remove('typing');
     typingEl.querySelector('.ai-bubble').textContent='Error: '+e.message;
   }
   document.getElementById('ai-send-btn').disabled=false;
@@ -1178,10 +1179,62 @@ function appendMsg(role,text,typing=false){
   const wrap=document.getElementById('ai-messages');
   const div=document.createElement('div');
   div.className=`ai-msg ${role}${typing?' typing':''}`;
-  div.innerHTML=`<div class="ai-bubble">${text}</div>`;
+  const bubble=document.createElement('div');
+  bubble.className='ai-bubble';
+  if(typing){
+    bubble.innerHTML='<span class="ai-typing"><span></span><span></span><span></span></span>';
+  } else {
+    bubble.textContent=text;
+  }
+  div.appendChild(bubble);
   wrap.appendChild(div);
   scrollChat();
   return div;
+}
+
+// Reveal text character-by-character, then swap in light markdown formatting.
+function typeWriter(bubble, text){
+  return new Promise(resolve => {
+    bubble.classList.add('typing-caret');
+    bubble.textContent='';
+    const total=text.length;
+    const perTick=Math.max(1, Math.round(total/180)); // long replies stay snappy
+    let i=0;
+    (function tick(){
+      i=Math.min(total, i+perTick);
+      bubble.textContent=text.slice(0,i);
+      scrollChat();
+      if(i<total){ setTimeout(tick, 16); }
+      else {
+        bubble.classList.remove('typing-caret');
+        bubble.innerHTML=formatMarkdown(text);
+        bubble.classList.add('formatted');
+        scrollChat();
+        resolve();
+      }
+    })();
+  });
+}
+
+// Minimal, safe markdown: escapes HTML first, then bold/italic/code/lists.
+function formatMarkdown(text){
+  const esc = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const inline = s => s
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  const lines = esc.split('\n');
+  let out='', inUl=false, inOl=false;
+  const closeLists = () => { if(inUl){out+='</ul>';inUl=false;} if(inOl){out+='</ol>';inOl=false;} };
+  for(const line of lines){
+    const ul=line.match(/^\s*[-*]\s+(.*)/);
+    const ol=line.match(/^\s*\d+\.\s+(.*)/);
+    if(ul){ if(inOl){out+='</ol>';inOl=false;} if(!inUl){out+='<ul>';inUl=true;} out+=`<li>${inline(ul[1])}</li>`; }
+    else if(ol){ if(inUl){out+='</ul>';inUl=false;} if(!inOl){out+='<ol>';inOl=true;} out+=`<li>${inline(ol[1])}</li>`; }
+    else { closeLists(); if(line.trim()) out+=`<p>${inline(line)}</p>`; }
+  }
+  closeLists();
+  return out || `<p>${inline(esc)}</p>`;
 }
 
 function scrollChat(){ const m=document.getElementById('ai-messages'); m.scrollTop=m.scrollHeight; }
