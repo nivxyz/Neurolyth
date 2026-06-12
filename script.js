@@ -860,6 +860,7 @@ onAuthStateChanged(auth, async (user) => {
     loadUserData()
       .then(() => loadExamConfig())
       .then(() => loadMarksFromFirestore())
+      .then(() => loadChats())
       .catch(e => { console.log('User data load failed:', e); });
   } else {
     currentUser = null;
@@ -1089,7 +1090,7 @@ const AI_ENABLED = !!GEMINI_PROXY_URL;
 function applyAiAvailability(){
   document.querySelectorAll('#panel-ai .feature-offline, #panel-quiz .feature-offline')
     .forEach(el => { el.style.display = AI_ENABLED ? 'none' : ''; });
-  const chat = document.querySelector('#panel-ai .ai-chat-wrap');
+  const chat = document.querySelector('#panel-ai .ai-layout');
   if(chat) chat.style.display = AI_ENABLED ? 'flex' : 'none';
   const builder = document.querySelector('#panel-quiz .quiz-builder');
   if(builder) builder.style.display = AI_ENABLED ? 'block' : 'none';
@@ -1301,19 +1302,110 @@ window.retryQuiz=retryQuiz; window.newQuiz=newQuiz;
 function toB64(file){ return new Promise((r,j)=>{ const rd=new FileReader(); rd.onload=()=>r(rd.result.split(',')[1]); rd.onerror=()=>j(new Error('Read error')); rd.readAsDataURL(file); }); }
 function readText(file){ return new Promise((r,j)=>{ const rd=new FileReader(); rd.onload=()=>r(rd.result); rd.onerror=()=>j(new Error('Read error')); rd.readAsText(file); }); }
 
-// ── AI CHAT ──────────────────────────────────────────────────
-let aiHistory=[];
+// ── AI CHAT (multiple saved conversations) ──────────────────
+const AI_SYSTEM = 'You are a helpful, friendly student study assistant called Neurolyth AI. Be concise and clear. Use simple language. You help with school subjects, homework, and studying. For ANY math or science notation (equations, fractions, powers, symbols), write it in LaTeX: inline math wrapped in $...$ and standalone equations in $$...$$. For example: $x^2 + 3x = 0$ or $$\\frac{a}{b}$$.';
+
+let chats = [];          // [{id, title, messages:[{role,content}], updatedAt}]
+let currentChatId = null;
 
 const aiInput=document.getElementById('ai-input');
 aiInput.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendAiMessage(); } });
-aiInput.addEventListener('input',()=>{ aiInput.style.height='auto'; aiInput.style.height=Math.min(aiInput.scrollHeight,120)+'px'; });
+aiInput.addEventListener('input',()=>{ aiInput.style.height='auto'; aiInput.style.height=Math.min(aiInput.scrollHeight,140)+'px'; });
+document.getElementById('ai-new-chat')?.addEventListener('click', ()=>newChat(true));
+
+function currentChat(){ return chats.find(c=>c.id===currentChatId) || null; }
+
+function newChat(focus){
+  const c = { id: Date.now().toString(36)+Math.random().toString(36).slice(2,5), title:'New chat', messages:[], updatedAt:Date.now() };
+  chats.unshift(c);
+  currentChatId = c.id;
+  renderChatList();
+  renderMessages(c);
+  if(focus) aiInput.focus();
+  return c;
+}
+
+function openChat(id){
+  currentChatId = id;
+  renderChatList();
+  const c = currentChat();
+  if(c) renderMessages(c);
+}
+
+function deleteChat(id){
+  chats = chats.filter(c=>c.id!==id);
+  if(currentChatId===id){
+    if(chats.length) currentChatId = chats[0].id;
+    else { newChat(false); }
+  }
+  renderChatList();
+  const c = currentChat();
+  if(c) renderMessages(c);
+  saveChats();
+}
+
+function renderChatList(){
+  const list=document.getElementById('ai-chat-list');
+  if(!list) return;
+  list.innerHTML='';
+  chats.forEach(c=>{
+    const item=document.createElement('div');
+    item.className='ai-chat-item'+(c.id===currentChatId?' active':'');
+    const t=document.createElement('span'); t.className='ai-chat-item-title'; t.textContent=c.title||'New chat';
+    const del=document.createElement('button'); del.className='ai-chat-del'; del.textContent='×'; del.title='Delete chat';
+    del.addEventListener('click', e=>{ e.stopPropagation(); deleteChat(c.id); });
+    item.append(t, del);
+    item.addEventListener('click', ()=>openChat(c.id));
+    list.appendChild(item);
+  });
+}
+
+function renderMessages(chat){
+  const wrap=document.getElementById('ai-messages');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  if(!chat || !chat.messages.length){
+    const div=document.createElement('div'); div.className='ai-msg assistant';
+    div.innerHTML='<div class="ai-bubble">Hey! I\'m your study assistant. Ask me anything — concepts, homework, quizzes, or just chat.</div>';
+    wrap.appendChild(div);
+    return;
+  }
+  chat.messages.forEach(m=>{
+    const div=document.createElement('div'); div.className='ai-msg '+m.role;
+    const bubble=document.createElement('div'); bubble.className='ai-bubble';
+    if(m.role==='assistant'){ bubble.innerHTML=formatMarkdown(m.content); bubble.classList.add('formatted'); }
+    else bubble.textContent=m.content;
+    div.appendChild(bubble); wrap.appendChild(div);
+    if(m.role==='assistant') renderMath(bubble);
+  });
+  scrollChat();
+}
+
+async function saveChats(){
+  if(!currentUser) return;
+  try { await setDoc(doc(db,'users',currentUser.uid,'data','chats'), { chats }); }
+  catch(e){ syncErr('Saving chats', e); }
+}
+
+async function loadChats(){
+  if(!currentUser){ chats=[]; newChat(false); return; }
+  try {
+    const snap = await getDoc(doc(db,'users',currentUser.uid,'data','chats'));
+    chats = snap.exists() ? (snap.data().chats || []) : [];
+  } catch(e){ chats=[]; syncErr('Loading chats', e); }
+  if(chats.length){ currentChatId = chats[0].id; renderChatList(); renderMessages(currentChat()); }
+  else { newChat(false); }
+}
 
 async function sendAiMessage(){
   const msg=aiInput.value.trim();
   if(!msg) return;
+  let chat = currentChat() || newChat(false);
+  if(!chat.messages.length){ document.getElementById('ai-messages').innerHTML=''; }
 
   appendMsg('user',msg);
-  aiHistory.push({role:'user',content:msg});
+  chat.messages.push({role:'user',content:msg});
+  if(!chat.title || chat.title==='New chat'){ chat.title = msg.slice(0,42); renderChatList(); }
   aiInput.value=''; aiInput.style.height='auto';
 
   const typingEl=appendMsg('assistant','',true);
@@ -1321,12 +1413,13 @@ async function sendAiMessage(){
 
   try {
     const reply = await geminiGenerate(
-      aiHistory.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n'),
+      chat.messages.slice(-12).map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n'),
       null,
-      'You are a helpful, friendly student study assistant called Neurolyth AI. Be concise and clear. Use simple language. You help with school subjects, homework, and studying. For ANY math or science notation (equations, fractions, powers, symbols), write it in LaTeX: inline math wrapped in $...$ and standalone equations in $$...$$. For example: $x^2 + 3x = 0$ or $$\\frac{a}{b}$$.'
+      AI_SYSTEM
     );
     typingEl.classList.remove('typing');
-    aiHistory.push({role:'assistant',content:reply});
+    chat.messages.push({role:'assistant',content:reply});
+    chat.updatedAt = Date.now();
     await typeWriter(typingEl.querySelector('.ai-bubble'), reply);
   } catch(e){
     typingEl.classList.remove('typing');
@@ -1334,6 +1427,7 @@ async function sendAiMessage(){
   }
   document.getElementById('ai-send-btn').disabled=false;
   scrollChat();
+  saveChats();
 }
 
 function appendMsg(role,text,typing=false){

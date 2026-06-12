@@ -450,16 +450,18 @@
           <p>The AI assistant is being reconnected to a new server. Check back soon — your tasks, marks, and progress all still work as normal.</p>
         </div>
 
-        <!-- Chat -->
-        <div class="ai-chat-wrap" style="display:none;">
-          <div class="ai-messages" id="ai-messages">
-            <div class="ai-msg assistant">
-              <div class="ai-bubble">Hey! I'm your study assistant. Ask me anything — I can explain concepts, help with homework, quiz you, or just chat.</div>
+        <!-- Chat with history sidebar -->
+        <div class="ai-layout" style="display:none;">
+          <aside class="ai-sidebar">
+            <button class="ai-newchat-btn" id="ai-new-chat">+ New chat</button>
+            <div class="ai-chat-list" id="ai-chat-list"></div>
+          </aside>
+          <div class="ai-chat-wrap">
+            <div class="ai-messages" id="ai-messages"></div>
+            <div class="ai-input-row">
+              <textarea class="ai-input" id="ai-input" placeholder="Ask me anything…" rows="1"></textarea>
+              <button class="ai-send-btn" id="ai-send-btn">↑</button>
             </div>
-          </div>
-          <div class="ai-input-row">
-            <textarea class="ai-input" id="ai-input" placeholder="Ask me anything…" rows="1"></textarea>
-            <button class="ai-send-btn" id="ai-send-btn">↑</button>
           </div>
         </div>
       </div>
