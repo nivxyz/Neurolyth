@@ -806,7 +806,14 @@ function buildGeminiContents(prompt, file){
   return [{ parts: [{ text: prompt }] }];
 }
 
+// AI features are offline until a serverless proxy is reconnected.
+// GitHub Pages is static-only, so there is no /api/gemini backend.
+const AI_ENABLED = false;
+
 async function geminiGenerate(prompt, file, systemText=''){
+  if(!AI_ENABLED){
+    throw new Error('AI features are temporarily offline while we reconnect the service.');
+  }
   const contents = buildGeminiContents(prompt, file);
   if(file){
     const ext=file.name.split('.').pop().toLowerCase();

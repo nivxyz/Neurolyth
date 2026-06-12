@@ -934,6 +934,14 @@ textarea.form-input{resize:vertical;min-height:100px;line-height:1.6;}
 .score-btn.secondary{background:transparent;border:1.5px solid var(--border);color:var(--text);}
 .score-btn:hover{opacity:0.88;transform:translateY(-1px);}
 
+/* ══ FEATURE OFFLINE NOTICE ══ */
+.feature-offline{
+  background:var(--surface);border:1px solid var(--border);border-radius:18px;
+  padding:34px 32px;max-width:620px;text-align:center;
+}
+.feature-offline-title{font-size:16px;font-weight:600;color:var(--text);margin-bottom:10px;}
+.feature-offline p{font-size:14px;color:var(--muted);line-height:1.6;margin:0;}
+
 /* ══ AI ══ */
 .ai-key-section{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:24px;max-width:600px;}
 .save-key-btn{padding:11px 20px;background:var(--accent);border:none;border-radius:10px;color:#040810;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:opacity 0.2s;flex-shrink:0;}
