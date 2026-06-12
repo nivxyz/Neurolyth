@@ -900,15 +900,40 @@ function enterApp(name){
   }, 360);
 }
 
+// ── SYNC TOAST ──────────────────────────────────────────────
+function toast(msg, isError=true){
+  let t = document.getElementById('app-toast');
+  if(!t){ t = document.createElement('div'); t.id = 'app-toast'; t.className = 'app-toast'; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.classList.toggle('err', isError);
+  t.classList.add('show');
+  clearTimeout(t._hide);
+  t._hide = setTimeout(() => t.classList.remove('show'), 6000);
+}
+
+function syncErr(action, e){
+  const code = e?.code || e?.message || 'unknown error';
+  console.error(action, e);
+  if(code.includes('permission-denied')){
+    toast('Cloud save blocked — publish Firestore security rules in Firebase.');
+  } else if(code.includes('unavailable') || code.includes('not-found') || code.includes('Failed to get document')){
+    toast('No Firestore database found — create one in the Firebase console.');
+  } else {
+    toast(`${action} failed: ${code}`);
+  }
+}
+
 // ── FIRESTORE: TASKS ────────────────────────────────────────
 async function saveTaskToFirestore(task){
   if(!currentUser) return;
-  await setDoc(doc(db, 'users', currentUser.uid, 'tasks', String(task.id)), task);
+  try { await setDoc(doc(db, 'users', currentUser.uid, 'tasks', String(task.id)), task); }
+  catch(e){ syncErr('Saving task', e); }
 }
 
 async function deleteTaskFromFirestore(id){
   if(!currentUser) return;
-  await deleteDoc(doc(db, 'users', currentUser.uid, 'tasks', String(id)));
+  try { await deleteDoc(doc(db, 'users', currentUser.uid, 'tasks', String(id))); }
+  catch(e){ syncErr('Deleting task', e); }
 }
 
 async function loadUserData(){
@@ -923,7 +948,7 @@ async function loadUserData(){
     remoteTasks.sort((a,b) => a.id - b.id);
     tasks = remoteTasks;
   } catch(e) {
-    console.log('Could not load tasks from Firestore:', e);
+    syncErr('Loading tasks', e);
   }
   renderTasks();
   updateTodoStats();
@@ -946,7 +971,7 @@ async function loadExamConfig(){
 async function saveMarksToFirestore(){
   if(!currentUser) return;
   try { await setDoc(doc(db,'users',currentUser.uid,'data','marks'),{marks:userMarks}); }
-  catch(e){ console.log('Failed to save marks:',e); }
+  catch(e){ syncErr('Saving marks', e); }
 }
 
 async function loadMarksFromFirestore(){
