@@ -161,6 +161,18 @@ document.addEventListener('click', (e) => {
   if(sc){ document.getElementById(sc.dataset.scroll)?.scrollIntoView({ behavior:'smooth' }); }
 });
 
+// cursor-following spotlight in the hero
+(function(){
+  const hero = document.querySelector('.lp-hero');
+  const spot = document.getElementById('hero-spotlight');
+  if(!hero || !spot) return;
+  hero.addEventListener('mousemove', e => {
+    const r = hero.getBoundingClientRect();
+    spot.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
+    spot.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
+  });
+})();
+
 // TEMP: font tester — try each signature font live; choice persists locally
 (function(){
   const tester = document.getElementById('font-tester');
