@@ -124,6 +124,24 @@ document.addEventListener('click', (e) => {
   if(sc){ document.getElementById(sc.dataset.scroll)?.scrollIntoView({ behavior:'smooth' }); }
 });
 
+// TEMP: font tester — try each signature font live; choice persists locally
+(function(){
+  const tester = document.getElementById('font-tester');
+  if(!tester) return;
+  const KEY = 'neurolyth_test_font';
+  const btns = [...tester.querySelectorAll('button[data-font]')];
+  btns.forEach(b => { b.style.fontFamily = b.dataset.font; }); // preview each in its own font
+  function apply(font){
+    document.documentElement.style.setProperty('--font-display', font);
+    btns.forEach(b => b.classList.toggle('active', b.dataset.font === font));
+    try { localStorage.setItem(KEY, font); } catch {}
+  }
+  btns.forEach(b => b.addEventListener('click', () => apply(b.dataset.font)));
+  let saved = null;
+  try { saved = localStorage.getItem(KEY); } catch {}
+  if(saved){ apply(saved); } else { btns[0].classList.add('active'); }
+})();
+
 // ── TABS ────────────────────────────────────────────────────
 document.querySelectorAll('.tnav-btn').forEach(t => {
   t.addEventListener('click', ()=>{

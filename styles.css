@@ -233,6 +233,27 @@ body::after {
 .lp-footer{text-align:center;padding:40px 24px;color:rgba(255,255,255,0.3);font-size:13px;border-top:1px solid var(--border);}
 .lp-footer .brand-accent{opacity:0.7;}
 
+/* TEMP: font tester widget */
+.font-tester{
+  position:fixed;left:18px;bottom:18px;z-index:60;
+  background:rgba(14,18,30,0.92);border:1px solid var(--border2);border-radius:14px;
+  padding:12px 14px;backdrop-filter:blur(12px);box-shadow:0 18px 50px rgba(0,0,0,0.5);
+  max-width:200px;
+}
+.font-tester-label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+.font-tester-btns{display:flex;flex-direction:column;gap:6px;}
+.font-tester-btns button{
+  text-align:left;background:var(--surface2);border:1px solid var(--border);border-radius:9px;
+  color:rgba(255,255,255,0.7);font-size:13px;font-weight:600;padding:8px 12px;cursor:pointer;
+  transition:all 0.18s;
+}
+.font-tester-btns button:hover{border-color:var(--border2);color:#fff;}
+.font-tester-btns button.active{
+  background:linear-gradient(135deg,rgba(255,77,109,0.2),rgba(59,130,246,0.2));
+  border-color:var(--accent);color:#fff;
+}
+@media(max-width:760px){.font-tester{left:10px;bottom:10px;padding:10px;}.font-tester-btns button{font-size:12px;padding:7px 10px;}}
+
 .auth-back{
   position:absolute;top:22px;left:24px;background:none;border:none;
   color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;
