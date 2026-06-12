@@ -13,9 +13,102 @@
 
 <div id="site">
 
+  <!-- ── LANDING ── -->
+  <div id="screen-landing">
+    <!-- scroll-driven line that travels down the page -->
+    <div class="scroll-spine" aria-hidden="true">
+      <div class="scroll-spine-fill" id="spine-fill"></div>
+      <div class="scroll-spine-dot" id="spine-dot"></div>
+    </div>
+
+    <header class="lp-nav">
+      <div class="lp-logo">Neuro<span class="brand-accent">lyth</span></div>
+      <button class="lp-nav-btn" data-goauth>Sign In</button>
+    </header>
+
+    <!-- HERO -->
+    <section class="lp-hero">
+      <div class="lp-hero-glow" data-parallax="0.25"></div>
+      <div class="lp-eyebrow reveal">Your academic companion</div>
+      <h1 class="lp-hero-title reveal">Study smarter with <em>Neurolyth</em></h1>
+      <p class="lp-hero-sub reveal">Tasks, marks, progress and an AI study buddy — all in one calm, beautifully organised dashboard built for students.</p>
+      <div class="lp-hero-cta reveal">
+        <button class="btn-primary lp-cta-btn" data-goauth>Get Started →</button>
+        <button class="lp-ghost-btn" data-scroll="lp-ai-section">Preview the AI ↓</button>
+      </div>
+      <div class="lp-scroll-hint reveal">Scroll to explore</div>
+    </section>
+
+    <!-- FEATURES -->
+    <section class="lp-section">
+      <div class="lp-section-head reveal">
+        <span class="lp-kicker">Everything in one place</span>
+        <h2 class="lp-section-title">One dashboard for your whole term</h2>
+      </div>
+      <div class="lp-feature-grid">
+        <div class="lp-feature-card reveal">
+          <div class="lp-feature-num">01</div>
+          <h3>To-Do &amp; Deadlines</h3>
+          <p>Track every assignment by priority, subject and due date. Small wins, stacked.</p>
+        </div>
+        <div class="lp-feature-card reveal">
+          <div class="lp-feature-num">02</div>
+          <h3>Marks</h3>
+          <p>Build your own exams and subjects, enter scores, and get instant grades.</p>
+        </div>
+        <div class="lp-feature-card reveal">
+          <div class="lp-feature-num">03</div>
+          <h3>Progress</h3>
+          <p>Watch your performance trend across every exam with clean, live charts.</p>
+        </div>
+        <div class="lp-feature-card reveal">
+          <div class="lp-feature-num">04</div>
+          <h3>Quiz Maker</h3>
+          <p>Turn any topic, notes or file into an instant practice quiz.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- AI SHOWCASE -->
+    <section class="lp-section lp-ai-section" id="lp-ai-section">
+      <div class="lp-ai-glow" data-parallax="0.18"></div>
+      <div class="lp-ai-inner">
+        <div class="lp-ai-copy reveal">
+          <span class="lp-kicker">Coming soon</span>
+          <h2 class="lp-section-title">Your personal <em>AI study buddy</em></h2>
+          <p>Ask anything — explain a concept, break down homework, or get quizzed. Right here, whenever you're stuck. We're reconnecting it to a faster, smarter server.</p>
+          <button class="lp-ghost-btn" data-goauth>Get started free →</button>
+        </div>
+        <div class="lp-ai-demo reveal" aria-hidden="true">
+          <div class="lp-ai-demo-bar">
+            <span class="lp-ai-dot"></span><span class="lp-ai-dot"></span><span class="lp-ai-dot"></span>
+            <span class="lp-ai-demo-title">Neurolyth AI</span>
+            <span class="lp-ai-badge">Preview</span>
+          </div>
+          <div class="lp-ai-demo-body">
+            <div class="lp-ai-line user">Explain photosynthesis simply</div>
+            <div class="lp-ai-line bot">Plants make their own food using sunlight, water and CO₂ — turning them into glucose (energy) and releasing oxygen. Think of leaves as tiny solar kitchens.</div>
+            <div class="lp-ai-line user">Quiz me on it</div>
+            <div class="lp-ai-line bot typing"><span></span><span></span><span></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section class="lp-final reveal">
+      <h2 class="lp-final-title">Ready to get organised?</h2>
+      <p class="lp-final-sub">Join Neurolyth and keep your whole academic life in one place.</p>
+      <button class="btn-primary lp-cta-btn" data-goauth>Create your account →</button>
+    </section>
+
+    <footer class="lp-footer">Neuro<span class="brand-accent">lyth</span> · Built for students</footer>
+  </div>
+
   <!-- ── AUTH ── -->
-  <div id="screen-auth">
+  <div id="screen-auth" style="display:none;">
     <div class="auth-card">
+      <button class="auth-back" data-goland>← Back</button>
       <div class="auth-brand">Neuro<span class="brand-accent">lyth</span></div>
       <div class="auth-sub">Student Dashboard</div>
 

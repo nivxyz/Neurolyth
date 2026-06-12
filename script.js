@@ -20,6 +20,61 @@ function launch(){
   },400);
 }
 
+// ── LANDING PAGE ────────────────────────────────────────────
+let landingInit = false;
+function initLandingScroll(){
+  if(landingInit) return;
+  landingInit = true;
+
+  const spineFill   = document.getElementById('spine-fill');
+  const spineDot    = document.getElementById('spine-dot');
+  const parallaxEls = [...document.querySelectorAll('#screen-landing [data-parallax]')];
+
+  function onScroll(){
+    const landing = document.getElementById('screen-landing');
+    if(!landing || landing.style.display === 'none') return;
+    const scrollable = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    const prog = Math.min(1, Math.max(0, window.scrollY / scrollable));
+    if(spineFill) spineFill.style.height = (prog*100) + '%';
+    if(spineDot)  spineDot.style.top = (prog*window.innerHeight) + 'px';
+    parallaxEls.forEach(el => {
+      const factor = parseFloat(el.dataset.parallax) || 0;
+      el.style.transform = `translateY(${window.scrollY*factor}px)`;
+    });
+  }
+  window.addEventListener('scroll', onScroll, { passive:true });
+  window.addEventListener('resize', onScroll);
+  onScroll();
+
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if(e.isIntersecting){ e.target.classList.add('in'); obs.unobserve(e.target); } });
+  }, { threshold:0.12 });
+  document.querySelectorAll('#screen-landing .reveal').forEach(el => obs.observe(el));
+}
+
+function showAuth(){
+  document.getElementById('screen-landing').style.display = 'none';
+  const a = document.getElementById('screen-auth');
+  a.style.display = 'flex';
+  a.style.opacity = '0';
+  requestAnimationFrame(() => { a.style.transition = 'opacity 0.35s ease'; a.style.opacity = '1'; });
+  window.scrollTo(0,0);
+}
+
+function showLanding(){
+  document.getElementById('screen-auth').style.display = 'none';
+  document.getElementById('screen-landing').style.display = 'block';
+  window.scrollTo(0,0);
+  initLandingScroll();
+}
+
+document.addEventListener('click', (e) => {
+  if(e.target.closest('[data-goauth]')){ showAuth(); return; }
+  if(e.target.closest('[data-goland]')){ showLanding(); return; }
+  const sc = e.target.closest('[data-scroll]');
+  if(sc){ document.getElementById(sc.dataset.scroll)?.scrollIntoView({ behavior:'smooth' }); }
+});
+
 // ── TABS ────────────────────────────────────────────────────
 document.querySelectorAll('.tnav-btn').forEach(t => {
   t.addEventListener('click', ()=>{
@@ -625,14 +680,17 @@ onAuthStateChanged(auth, async (user) => {
     currentUser = null;
     document.body.classList.remove('auth-loading');
     document.body.classList.add('auth-ready');
-    document.getElementById('screen-auth').style.display = 'flex';
+    document.getElementById('screen-landing').style.display = 'block';
+    document.getElementById('screen-auth').style.display = 'none';
     document.getElementById('screen-app').style.display  = 'none';
     document.getElementById('screen-app').classList.remove('show');
+    initLandingScroll();
   }
 });
 
 // ── ENTER APP ───────────────────────────────────────────────
 function enterApp(name){
+  document.getElementById('screen-landing').style.display = 'none';
   const authEl = document.getElementById('screen-auth');
   authEl.style.transition = 'opacity 0.35s ease';
   authEl.style.opacity = '0';
