@@ -17,6 +17,9 @@
   --red: #f75a5a;
   --blue: #4fa8f7;
   --pink: #f76ab4;
+  /* Display / "signature" font — swap this one line to test others
+     (e.g. 'Sora', 'Outfit', 'Unbounded', 'Bricolage Grotesque') */
+  --font-display: 'Syne', sans-serif;
 }
 
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -101,7 +104,7 @@ body::after {
   backdrop-filter:blur(10px);
   background:linear-gradient(180deg,rgba(7,9,18,0.7),transparent);
 }
-.lp-logo{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:900;letter-spacing:-0.02em;color:#fff;}
+.lp-logo{font-family:var(--font-display);font-size:22px;font-weight:900;letter-spacing:-0.02em;color:#fff;}
 .lp-nav-btn{
   background:var(--surface2);border:1.5px solid var(--border2);border-radius:10px;
   color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;
@@ -125,7 +128,7 @@ body::after {
   text-transform:uppercase;color:var(--accent);margin-bottom:24px;
 }
 .lp-hero-title{
-  font-family:'Space Grotesk',sans-serif;font-size:clamp(40px,7vw,80px);
+  font-family:var(--font-display);font-size:clamp(40px,7vw,80px);
   font-weight:900;line-height:1.0;letter-spacing:-0.02em;max-width:14ch;margin-bottom:24px;
 }
 .lp-hero-title em,.lp-section-title em{
@@ -157,7 +160,7 @@ body::after {
   font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.25em;
   text-transform:uppercase;color:var(--accent2);display:block;margin-bottom:14px;
 }
-.lp-section-title{font-family:'Space Grotesk',sans-serif;font-size:clamp(28px,4.5vw,46px);font-weight:800;letter-spacing:-0.02em;line-height:1.1;}
+.lp-section-title{font-family:var(--font-display);font-size:clamp(28px,4.5vw,46px);font-weight:800;letter-spacing:-0.02em;line-height:1.1;}
 
 .lp-feature-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;}
 .lp-feature-card{
@@ -186,7 +189,7 @@ body::after {
 .lp-feature-card:hover::after{opacity:1;}
 .lp-feature-num{font-family:'DM Mono',monospace;font-size:13px;color:var(--cardc);margin-bottom:18px;letter-spacing:0.1em;transition:transform 0.3s ease;}
 .lp-feature-card:hover .lp-feature-num{transform:translateX(4px);}
-.lp-feature-card h3{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;margin-bottom:10px;transition:color 0.25s ease;}
+.lp-feature-card h3{font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:10px;transition:color 0.25s ease;}
 .lp-feature-card:hover h3{color:var(--cardc);}
 .lp-feature-card p{font-size:14px;color:rgba(242,244,251,0.72);line-height:1.65;}
 .lp-feature-hint{
@@ -225,7 +228,7 @@ body::after {
 
 /* final cta */
 .lp-final{text-align:center;padding:clamp(80px,12vw,150px) 24px;max-width:680px;margin:0 auto;}
-.lp-final-title{font-family:'Space Grotesk',sans-serif;font-size:clamp(30px,5vw,52px);font-weight:900;letter-spacing:-0.02em;margin-bottom:18px;}
+.lp-final-title{font-family:var(--font-display);font-size:clamp(30px,5vw,52px);font-weight:900;letter-spacing:-0.02em;margin-bottom:18px;}
 .lp-final-sub{font-size:16px;color:var(--muted);line-height:1.7;margin-bottom:36px;}
 .lp-footer{text-align:center;padding:40px 24px;color:rgba(255,255,255,0.3);font-size:13px;border-top:1px solid var(--border);}
 .lp-footer .brand-accent{opacity:0.7;}
@@ -266,7 +269,7 @@ body::after {
 }
 
 .welcome-headline {
-  font-family:'Space Grotesk',sans-serif;
+  font-family:var(--font-display);
   font-size:clamp(42px,7vw,82px);
   font-weight:900;
   line-height:0.95;
@@ -356,7 +359,7 @@ body::after {
 }
 
 .auth-brand {
-  font-family:'Space Grotesk',sans-serif;
+  font-family:var(--font-display);
   font-size:28px;font-weight:900;
   letter-spacing:-0.02em;
   text-align:center;margin-bottom:6px;color:#fff;
@@ -486,7 +489,7 @@ body::after {
 }
 
 .topbar-brand {
-  font-family:'Space Grotesk',sans-serif;
+  font-family:var(--font-display);
   font-size:22px;
   font-weight:900;
   letter-spacing:-0.02em;
@@ -543,7 +546,7 @@ body::after {
   margin-bottom:52px;
 }
 .page-hero h2{
-  font-family:'Space Grotesk',sans-serif;
+  font-family:var(--font-display);
   font-size:clamp(36px,5vw,56px);
   font-weight:900;
   letter-spacing:-0.02em;
@@ -599,7 +602,7 @@ body::after {
 }
 .insight-card strong{
   display:block;
-  font-family:'Space Grotesk',sans-serif;
+  font-family:var(--font-display);
   font-size:18px;
   margin-bottom:8px;
 }
@@ -634,7 +637,7 @@ body::after {
   box-shadow:0 20px 60px rgba(0,0,0,0.22);
 }
 .add-card-title{
-  font-family:'Space Grotesk',sans-serif;
+  font-family:var(--font-display);
   font-size:20px;
   font-weight:700;
   margin-bottom:20px;
@@ -934,7 +937,7 @@ select.form-input option{background:#0a1525;}
   margin-bottom:8px;
 }
 .res-card-val{
-  font-family:'Space Grotesk',sans-serif;
+  font-family:var(--font-display);
   font-size:26px;font-weight:700;
   background:linear-gradient(135deg,var(--accent),var(--accent2));
   background-clip:text;
@@ -1003,7 +1006,7 @@ select.form-input option{background:#0a1525;}
   min-width:140px;
 }
 .prog-chip strong{
-  font-family:'Space Grotesk',sans-serif;
+  font-family:var(--font-display);
   font-size:22px;font-weight:700;
   display:block;margin-bottom:2px;
   color:var(--text);
