@@ -911,28 +911,29 @@ function clearQuizFile(){ quizFile=null; document.getElementById('quiz-file-prev
 function pctColor(p){ if(p>=90)return'#3de8a0';if(p>=75)return'#00e5ff';if(p>=60)return'#f7c948';if(p>=35)return'#fb923c';return'#f75a5a'; }
 function grade(p){ if(p>=90)return{g:'A+',bg:'rgba(61,232,160,0.15)',col:'#3de8a0'};if(p>=75)return{g:'A',bg:'rgba(0,229,255,0.18)',col:'#7dd8f0'};if(p>=60)return{g:'B',bg:'rgba(247,201,72,0.12)',col:'#f7c948'};if(p>=50)return{g:'C',bg:'rgba(251,146,60,0.12)',col:'#fb923c'};if(p>=35)return{g:'D',bg:'rgba(247,90,90,0.12)',col:'#f87171'};return{g:'F',bg:'rgba(239,68,68,0.18)',col:'#ef4444'}; }
 
-function buildGeminiContents(prompt, file){
-  if(!file){
-    return [{ parts: [{ text: prompt }] }];
+// Lazy-load PDF.js only when a PDF is actually uploaded.
+let _pdfjs = null;
+async function getPdfjs(){
+  if(!_pdfjs){
+    _pdfjs = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4/build/pdf.min.mjs');
+    _pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4/build/pdf.worker.min.mjs';
   }
-  const ext=file.name.split('.').pop().toLowerCase();
-  if(['jpg','jpeg','png'].includes(ext)){
-    return [{
-      parts: [
-        { inline_data: { mime_type: ext==='png' ? 'image/png' : 'image/jpeg', data: null } },
-        { text: prompt }
-      ]
-    }];
+  return _pdfjs;
+}
+
+// Extract selectable text from a PDF in the browser (text-based PDFs only).
+async function readPdfText(file){
+  const pdfjsLib = await getPdfjs();
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const maxPages = Math.min(pdf.numPages, 30);
+  let text = '';
+  for(let p=1; p<=maxPages; p++){
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    text += content.items.map(it => it.str).join(' ') + '\n';
   }
-  if(ext==='pdf'){
-    return [{
-      parts: [
-        { inline_data: { mime_type: 'application/pdf', data: null } },
-        { text: prompt }
-      ]
-    }];
-  }
-  return [{ parts: [{ text: prompt }] }];
+  return text.trim();
 }
 
 // Cloudflare Worker that proxies Gemini (keeps the API key secret).
@@ -956,23 +957,27 @@ async function geminiGenerate(prompt, file, systemText=''){
   if(!AI_ENABLED){
     throw new Error('AI features are temporarily offline while we reconnect the service.');
   }
-  const contents = buildGeminiContents(prompt, file);
+  let fullPrompt = prompt;
   if(file){
-    const ext=file.name.split('.').pop().toLowerCase();
-    const b64 = await toB64(file);
-    if(contents[0]?.parts?.[0]?.inline_data){
-      contents[0].parts[0].inline_data.data = b64;
-    } else if(!['txt','doc','docx'].includes(ext)){
-      contents[0].parts.unshift({ text: `File name: ${file.name}\n` });
+    const ext = file.name.split('.').pop().toLowerCase();
+    let fileText = '';
+    if(ext === 'pdf'){
+      fileText = await readPdfText(file);
+      if(!fileText){
+        throw new Error('Could not read any text from this PDF — it looks like scanned images. Try a text-based PDF, or paste the text instead.');
+      }
+    } else if(['txt','doc','docx'].includes(ext)){
+      fileText = await readText(file);
+    } else if(['jpg','jpeg','png'].includes(ext)){
+      throw new Error('Image files need a vision AI, which the current free model can\'t read. Please upload a PDF/TXT or paste the text instead.');
     }
-    if(['txt','doc','docx'].includes(ext)){
-      const txt = await readText(file);
-      contents[0] = { parts: [{ text: `Content:\n${txt.substring(0,12000)}\n\n${prompt}` }] };
+    if(fileText){
+      fullPrompt = `Use ONLY the following content from "${file.name}" to answer.\n"""\n${fileText.substring(0,16000)}\n"""\n\n${prompt}`;
     }
   }
 
   const payload = {
-    contents,
+    contents: [{ parts: [{ text: fullPrompt }] }],
   };
   if (systemText) {
     payload.systemInstruction = { parts: [{ text: systemText }] };
@@ -1012,7 +1017,7 @@ qDrop.addEventListener('drop', e=>{ e.preventDefault(); qDrop.classList.remove('
 qFile.addEventListener('change', e=>{ if(e.target.files[0]) handleQuizFile(e.target.files[0]); });
 
 function handleQuizFile(file){
-  const allowed=['pdf','jpg','jpeg','png','txt','doc','docx'];
+  const allowed=['pdf','txt','doc','docx'];
   const ext=file.name.split('.').pop().toLowerCase();
   if(!allowed.includes(ext)) return;
   quizFile=file;
@@ -1035,6 +1040,7 @@ async function generateQuiz(){
   document.getElementById('quiz-score').style.display='none';
 
   const prompt = `You are a quiz generator. Create exactly ${numQ} multiple-choice questions at ${diff} difficulty.
+Base EVERY question strictly on the provided topic/content above. Do not invent unrelated questions.
 Respond ONLY with valid JSON, no markdown, no extra text.
 Format:
 {"title":"Short quiz title","questions":[{"question":"Question text","options":["A","B","C","D"],"correct":0,"explanation":"Why this answer is correct"}]}
