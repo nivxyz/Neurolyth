@@ -142,6 +142,74 @@ document.addEventListener('click', (e) => {
   if(saved){ apply(saved); } else { btns[0].classList.add('active'); }
 })();
 
+// ── LANDING AI DEMO (2 free prompts, then sign in) ──────────
+(function(){
+  const DEMO_LIMIT = 2;
+  const KEY = 'neurolyth_demo_count';
+  const msgs = document.getElementById('demo-messages');
+  const input = document.getElementById('demo-input');
+  const sendBtn = document.getElementById('demo-send');
+  const row = document.getElementById('demo-input-row');
+  if(!msgs || !input || !sendBtn || !row) return;
+
+  const getCount = () => { try { return parseInt(localStorage.getItem(KEY)) || 0; } catch { return 0; } };
+  const setCount = n => { try { localStorage.setItem(KEY, n); } catch {} };
+
+  function addLine(role, text){
+    const div = document.createElement('div');
+    div.className = 'lp-ai-line ' + role;
+    if(text != null) div.textContent = text;
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+    return div;
+  }
+
+  function lockDemo(){
+    row.innerHTML = '<button class="lp-demo-cta" data-goauth>Sign in to keep chatting →</button>';
+  }
+
+  async function sendDemo(){
+    const q = input.value.trim();
+    if(!q) return;
+    if(getCount() >= DEMO_LIMIT){ lockDemo(); return; }
+
+    addLine('user', q);
+    input.value = '';
+    sendBtn.disabled = true; input.disabled = true;
+
+    const botLine = addLine('bot', null);
+    botLine.innerHTML = '<span class="ai-typing"><span></span><span></span><span></span></span>';
+
+    try {
+      const reply = await geminiGenerate(
+        q, null,
+        'You are Neurolyth AI, a friendly student study assistant. Be concise and helpful. For any math, use LaTeX wrapped in $...$ or $$...$$.'
+      );
+      botLine.innerHTML = formatMarkdown(reply);
+      botLine.classList.add('formatted');
+      renderMath(botLine);
+    } catch(e){
+      botLine.textContent = 'Error: ' + e.message;
+    }
+    msgs.scrollTop = msgs.scrollHeight;
+
+    const n = getCount() + 1;
+    setCount(n);
+    sendBtn.disabled = false; input.disabled = false;
+    if(n >= DEMO_LIMIT){
+      addLine('bot', "That's your 2 free questions! Sign in (it's free) to keep chatting and unlock quizzes, marks and more.");
+      lockDemo();
+    } else {
+      input.focus();
+    }
+  }
+
+  sendBtn.addEventListener('click', sendDemo);
+  input.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); sendDemo(); } });
+
+  if(getCount() >= DEMO_LIMIT) lockDemo();
+})();
+
 // ── TABS ────────────────────────────────────────────────────
 document.querySelectorAll('.tnav-btn').forEach(t => {
   t.addEventListener('click', ()=>{

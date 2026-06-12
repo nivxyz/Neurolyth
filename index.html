@@ -90,22 +90,23 @@
       <div class="lp-ai-glow" data-parallax="0.18"></div>
       <div class="lp-ai-inner">
         <div class="lp-ai-copy reveal">
-          <span class="lp-kicker">Coming soon</span>
+          <span class="lp-kicker">Try it now</span>
           <h2 class="lp-section-title">Your personal <em>AI study buddy</em></h2>
-          <p>Ask anything — explain a concept, break down homework, or get quizzed. Right here, whenever you're stuck. We're reconnecting it to a faster, smarter server.</p>
+          <p>Ask anything — explain a concept, break down homework, or get quizzed. Try it right here, free. Sign in to keep the conversation going.</p>
           <button class="lp-ghost-btn" data-goauth>Get started free →</button>
         </div>
-        <div class="lp-ai-demo reveal" aria-hidden="true">
+        <div class="lp-ai-demo reveal">
           <div class="lp-ai-demo-bar">
             <span class="lp-ai-dot"></span><span class="lp-ai-dot"></span><span class="lp-ai-dot"></span>
             <span class="lp-ai-demo-title">Neurolyth AI</span>
-            <span class="lp-ai-badge">Preview</span>
+            <span class="lp-ai-badge">Live demo</span>
           </div>
-          <div class="lp-ai-demo-body">
-            <div class="lp-ai-line user">Explain photosynthesis simply</div>
-            <div class="lp-ai-line bot">Plants make their own food using sunlight, water and CO₂ — turning them into glucose (energy) and releasing oxygen. Think of leaves as tiny solar kitchens.</div>
-            <div class="lp-ai-line user">Quiz me on it</div>
-            <div class="lp-ai-line bot typing"><span></span><span></span><span></span></div>
+          <div class="lp-ai-demo-body" id="demo-messages">
+            <div class="lp-ai-line bot">Hi! I'm Neurolyth AI. Ask me anything to try it out — you get 2 free questions.</div>
+          </div>
+          <div class="lp-ai-demo-input" id="demo-input-row">
+            <input type="text" id="demo-input" placeholder="Ask a quick question…" maxlength="300" autocomplete="off"/>
+            <button id="demo-send" aria-label="Send">↑</button>
           </div>
         </div>
       </div>
