@@ -231,9 +231,9 @@ body::after {
 .lp-ai-demo-input input{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:11px 13px;color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color 0.2s;}
 .lp-ai-demo-input input:focus{border-color:var(--accent);}
 .lp-ai-demo-input input::placeholder{color:rgba(255,255,255,0.25);}
-.lp-ai-demo-input button{width:42px;height:42px;border-radius:11px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;font-size:18px;font-weight:700;cursor:pointer;flex-shrink:0;transition:opacity 0.2s,transform 0.15s;}
-.lp-ai-demo-input button:hover:not(:disabled){transform:translateY(-1px);}
-.lp-ai-demo-input button:disabled{opacity:0.45;cursor:default;}
+#demo-send{width:42px;height:42px;border-radius:11px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;font-size:18px;font-weight:700;cursor:pointer;flex-shrink:0;transition:opacity 0.2s,transform 0.15s;}
+#demo-send:hover:not(:disabled){transform:translateY(-1px);}
+#demo-send:disabled{opacity:0.45;cursor:default;}
 .lp-demo-cta{display:block;width:100%;padding:13px;border:none;border-radius:11px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-family:'DM Sans',sans-serif;font-weight:600;font-size:14px;white-space:nowrap;cursor:pointer;transition:opacity 0.2s,transform 0.15s;}
 .lp-demo-cta:hover{transform:translateY(-1px);opacity:0.94;}
 

@@ -31,14 +31,13 @@ function initLandingScroll(){
   const parallaxEls = [...document.querySelectorAll('#screen-landing [data-parallax]')];
   const SVGNS = 'http://www.w3.org/2000/svg';
 
-  // Several lines, each weaving with its own waves/phase so they cross and
-  // feel organic. Frequency ratios are non-integer so nothing repeats.
-  // Clean parallel sine curves — same wave, offset side-by-side.
+  // Four parallel sine columns — each line owns its own horizontal lane.
+  // xFrac sets the center of each lane; amplitude is kept small so they never cross.
   const LINE_CONFIGS = [
-    { color:'url(#spineGrad)', glow:'rgba(255,77,109,0.45)', width:2.8, dot:6,   off:-54 },
-    { color:'#4fa8f7',         glow:'rgba(79,168,247,0.45)', width:1.8, dot:4,   off:-18 },
-    { color:'#8b5cf6',         glow:'rgba(139,92,246,0.45)', width:1.6, dot:4,   off: 18 },
-    { color:'#00e5a0',         glow:'rgba(0,229,160,0.4)',   width:1.4, dot:3.5, off: 54 },
+    { color:'url(#spineGrad)', glow:'rgba(255,77,109,0.45)', width:2.8, dot:6,   xFrac:0.14 },
+    { color:'#4fa8f7',         glow:'rgba(79,168,247,0.45)', width:1.8, dot:4,   xFrac:0.38 },
+    { color:'#8b5cf6',         glow:'rgba(139,92,246,0.45)', width:1.6, dot:4,   xFrac:0.62 },
+    { color:'#00e5a0',         glow:'rgba(0,229,160,0.4)',   width:1.4, dot:3.5, xFrac:0.86 },
   ];
   let lines = [];
 
@@ -77,16 +76,16 @@ function initLandingScroll(){
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     svg.style.height = H + 'px';
 
-    const cx    = W / 2;
-    const amp   = Math.min(W * 0.22, 240);
-    const waves = Math.max(2, H / 900);            // gentle, uniform wavelength
+    const amp   = Math.min(W * 0.085, 95);          // wave width within each lane
+    const waves = Math.max(2.5, H / 620);           // gentle, even waves
     const freq  = waves * Math.PI * 2 / H;
     const step  = 12;
 
     lines.forEach(line => {
+      const cx = W * line.cfg.xFrac;
       let d = '';
       for(let y = 0; y <= H; y += step){
-        const x = cx + line.cfg.off + amp * Math.sin(y * freq);
+        const x = cx + amp * Math.sin(y * freq);
         d += (y === 0 ? `M ${x.toFixed(1)} 0` : ` L ${x.toFixed(1)} ${y.toFixed(1)}`);
       }
       line.bg.setAttribute('d', d);
