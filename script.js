@@ -26,25 +26,66 @@ function initLandingScroll(){
   if(landingInit) return;
   landingInit = true;
 
-  const spineFill   = document.getElementById('spine-fill');
-  const spineDot    = document.getElementById('spine-dot');
+  const landing     = document.getElementById('screen-landing');
+  const svg         = document.getElementById('scroll-path');
+  const bgPath      = document.getElementById('scroll-path-bg');
+  const fillPath    = document.getElementById('scroll-path-fill');
+  const dot         = document.getElementById('scroll-path-dot');
   const parallaxEls = [...document.querySelectorAll('#screen-landing [data-parallax]')];
+  let pathLen = 0;
+
+  // Build a winding path that weaves down the centre of the page.
+  function buildPath(){
+    const W = landing.clientWidth;
+    const H = landing.scrollHeight;
+    if(!W || !H) return;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.style.height = H + 'px';
+
+    const cx   = W / 2;
+    const amp  = Math.min(W * 0.30, 300);   // how far it swings left/right
+    const waves = Math.max(2.5, H / 620);   // roughly one bend per section
+    const freq = waves * Math.PI * 2 / H;
+    const step = 14;
+
+    let d = '';
+    for(let y = 0; y <= H; y += step){
+      const x = cx + amp * Math.sin(y * freq);
+      d += (y === 0 ? `M ${x.toFixed(1)} 0` : ` L ${x.toFixed(1)} ${y.toFixed(1)}`);
+    }
+    bgPath.setAttribute('d', d);
+    fillPath.setAttribute('d', d);
+    pathLen = fillPath.getTotalLength();
+    fillPath.style.strokeDasharray = pathLen;
+    fillPath.style.strokeDashoffset = pathLen;
+  }
 
   function onScroll(){
-    const landing = document.getElementById('screen-landing');
-    if(!landing || landing.style.display === 'none') return;
+    if(landing.style.display === 'none') return;
     const scrollable = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
     const prog = Math.min(1, Math.max(0, window.scrollY / scrollable));
-    if(spineFill) spineFill.style.height = (prog*100) + '%';
-    if(spineDot)  spineDot.style.top = (prog*window.innerHeight) + 'px';
+    if(pathLen){
+      fillPath.style.strokeDashoffset = pathLen * (1 - prog);
+      const pt = fillPath.getPointAtLength(pathLen * prog);
+      dot.setAttribute('cx', pt.x);
+      dot.setAttribute('cy', pt.y);
+    }
     parallaxEls.forEach(el => {
       const factor = parseFloat(el.dataset.parallax) || 0;
       el.style.transform = `translateY(${window.scrollY*factor}px)`;
     });
   }
+
+  function rebuild(){ buildPath(); onScroll(); }
+
+  let resizeT;
   window.addEventListener('scroll', onScroll, { passive:true });
-  window.addEventListener('resize', onScroll);
+  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(rebuild, 150); });
+  window.addEventListener('load', rebuild);
+
+  buildPath();
   onScroll();
+  setTimeout(rebuild, 350); // recompute once fonts/layout settle
 
   const obs = new IntersectionObserver((entries) => {
     entries.forEach(e => { if(e.isIntersecting){ e.target.classList.add('in'); obs.unobserve(e.target); } });
