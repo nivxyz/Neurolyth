@@ -727,6 +727,10 @@ function firebaseErrMsg(code){
     'auth/invalid-credential':     'Incorrect email or password.',
     'auth/too-many-requests':      'Too many attempts. Please try again later.',
     'auth/network-request-failed': 'Network error. Check your connection.',
+    'auth/unauthorized-domain':    'This site is not authorized for sign-in. Add this domain in Firebase → Authentication → Settings → Authorized domains.',
+    'auth/popup-blocked':          'Sign-in popup was blocked. Allow popups for this site and try again.',
+    'auth/popup-closed-by-user':   'Sign-in was cancelled.',
+    'auth/operation-not-allowed':  'Google sign-in is not enabled. Enable it in Firebase → Authentication → Sign-in method.',
   };
   return map[code] || 'Something went wrong. Please try again.';
 }
