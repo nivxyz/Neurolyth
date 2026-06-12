@@ -165,6 +165,7 @@ document.addEventListener('click', (e) => {
   }
 
   function lockDemo(){
+    row.style.display = 'block';
     row.innerHTML = '<button class="lp-demo-cta" data-goauth>Sign in to keep chatting →</button>';
   }
 
