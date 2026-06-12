@@ -1044,7 +1044,8 @@ Base EVERY question strictly on the provided topic/content above. Do not invent 
 Respond ONLY with valid JSON, no markdown, no extra text.
 Format:
 {"title":"Short quiz title","questions":[{"question":"Question text","options":["A","B","C","D"],"correct":0,"explanation":"Why this answer is correct"}]}
-Rules: "correct" is 0-based index. Exactly 4 options per question. Make questions test genuine understanding.`;
+Rules: "correct" is 0-based index. Exactly 4 options per question. Make questions test genuine understanding.
+For any math, write it in LaTeX inside $...$ (e.g. $x^2$, $\\\\frac{1}{2}$). Since this is JSON, escape every backslash as \\\\ (so a fraction becomes \\\\frac).`;
 
   try {
     const raw = await geminiGenerate(
@@ -1052,7 +1053,7 @@ Rules: "correct" is 0-based index. Exactly 4 options per question. Make question
       quizFile,
       'You are a quiz generator. Return only valid JSON. No markdown.'
     );
-    quizData=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    quizData=parseQuizJson(raw);
     if(!quizData.questions?.length) throw new Error('No questions generated.');
     quizQ=0; quizAnswers={}; quizAnswered={};
     document.getElementById('quiz-loading').style.display='none';
@@ -1063,6 +1064,16 @@ Rules: "correct" is 0-based index. Exactly 4 options per question. Make question
     alert('Error: '+e.message);
   }
   btn.disabled=false;
+}
+
+// Parse the quiz JSON, repairing lone LaTeX backslashes that break JSON.
+function parseQuizJson(raw){
+  const cleaned = raw.replace(/```json|```/g,'').trim();
+  try { return JSON.parse(cleaned); }
+  catch {
+    const repaired = cleaned.replace(/\\(?!["\\/bfnru])/g, '\\\\');
+    return JSON.parse(repaired);
+  }
 }
 
 function renderQuizQuestion(){
@@ -1105,6 +1116,7 @@ function renderQuizQuestion(){
           :`<button class="q-nav-btn finish" onclick="finishQuiz()">Finish Quiz</button>`}
       </div>
     </div>`;
+  renderMath(document.getElementById('quiz-play'));
 }
 
 function answerQuiz(i){
@@ -1168,7 +1180,7 @@ async function sendAiMessage(){
     const reply = await geminiGenerate(
       aiHistory.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n'),
       null,
-      'You are a helpful, friendly student study assistant called Neurolyth AI. Be concise and clear. Use simple language. You help with school subjects, homework, and studying.'
+      'You are a helpful, friendly student study assistant called Neurolyth AI. Be concise and clear. Use simple language. You help with school subjects, homework, and studying. For ANY math or science notation (equations, fractions, powers, symbols), write it in LaTeX: inline math wrapped in $...$ and standalone equations in $$...$$. For example: $x^2 + 3x = 0$ or $$\\frac{a}{b}$$.'
     );
     typingEl.classList.remove('typing');
     aiHistory.push({role:'assistant',content:reply});
@@ -1215,6 +1227,7 @@ function typeWriter(bubble, text){
         bubble.classList.remove('typing-caret');
         bubble.innerHTML=formatMarkdown(text);
         bubble.classList.add('formatted');
+        renderMath(bubble);
         scrollChat();
         resolve();
       }
@@ -1222,9 +1235,30 @@ function typeWriter(bubble, text){
   });
 }
 
-// Minimal, safe markdown: escapes HTML first, then bold/italic/code/lists.
+// Render LaTeX math ($...$, $$...$$, \(...\), \[...\]) inside an element.
+function renderMath(el){
+  if(!el || !window.renderMathInElement) return;
+  try {
+    window.renderMathInElement(el, {
+      delimiters: [
+        {left:'$$', right:'$$', display:true},
+        {left:'$',  right:'$',  display:false},
+        {left:'\\[', right:'\\]', display:true},
+        {left:'\\(', right:'\\)', display:false},
+      ],
+      throwOnError: false,
+    });
+  } catch {}
+}
+
+// Minimal, safe markdown that also protects LaTeX math from being mangled.
 function formatMarkdown(text){
-  const esc = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // 1) stash math spans so markdown/escaping don't touch them
+  const math=[];
+  const stashed = text.replace(/\$\$[\s\S]*?\$\$|\$[^\n$]*?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)/g,
+    m => { math.push(m); return `${math.length-1}`; });
+  const escHtml = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const esc = escHtml(stashed);
   const inline = s => s
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
@@ -1240,7 +1274,9 @@ function formatMarkdown(text){
     else { closeLists(); if(line.trim()) out+=`<p>${inline(line)}</p>`; }
   }
   closeLists();
-  return out || `<p>${inline(esc)}</p>`;
+  if(!out) out = `<p>${inline(esc)}</p>`;
+  // 2) restore math spans (HTML-escaped, but left for KaTeX to render)
+  return out.replace(/(\d+)/g, (m,i)=>escHtml(math[+i]));
 }
 
 function scrollChat(){ const m=document.getElementById('ai-messages'); m.scrollTop=m.scrollHeight; }
