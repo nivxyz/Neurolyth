@@ -937,7 +937,7 @@ function buildGeminiContents(prompt, file){
 
 // Cloudflare Worker that proxies Gemini (keeps the API key secret).
 // Deploy cloudflare/worker.js, then paste its URL here to enable the AI.
-const GEMINI_PROXY_URL = ''; // e.g. 'https://neurolyth-ai.<you>.workers.dev'
+const GEMINI_PROXY_URL = 'https://neurolyth-ai.lightningcraftpro.workers.dev';
 const AI_ENABLED = !!GEMINI_PROXY_URL;
 
 // Show the real AI/Quiz UI when the proxy is configured; otherwise the
