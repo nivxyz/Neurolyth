@@ -28,55 +28,89 @@ function initLandingScroll(){
 
   const landing     = document.getElementById('screen-landing');
   const svg         = document.getElementById('scroll-path');
-  const bgPath      = document.getElementById('scroll-path-bg');
-  const fillPath    = document.getElementById('scroll-path-fill');
-  const dot         = document.getElementById('scroll-path-dot');
   const parallaxEls = [...document.querySelectorAll('#screen-landing [data-parallax]')];
-  let pathLen = 0;
+  const SVGNS = 'http://www.w3.org/2000/svg';
 
-  // Build a winding path that weaves down the centre of the page.
+  // Several lines, each weaving with its own waves/phase so they cross and
+  // feel organic. Frequency ratios are non-integer so nothing repeats.
+  const LINE_CONFIGS = [
+    { color:'url(#spineGrad)', glow:'rgba(255,77,109,0.45)', width:2.8, dot:6,   ampMul:1.00, cxOff: 0.00, phase:0.0, fmul:[1,2.37,0.61,4.13], coef:[0.58,0.30,0.20,0.13] },
+    { color:'#4fa8f7',         glow:'rgba(79,168,247,0.45)', width:1.8, dot:4,   ampMul:0.78, cxOff: 0.06, phase:1.7, fmul:[1.3,2.0,3.1,0.5],  coef:[0.50,0.34,0.18,0.12] },
+    { color:'#8b5cf6',         glow:'rgba(139,92,246,0.45)', width:1.6, dot:4,   ampMul:1.20, cxOff:-0.06, phase:3.4, fmul:[0.8,1.9,2.7,4.5],  coef:[0.55,0.26,0.20,0.12] },
+    { color:'#00e5a0',         glow:'rgba(0,229,160,0.4)',   width:1.4, dot:3.5, ampMul:0.60, cxOff: 0.03, phase:5.0, fmul:[1.6,0.7,3.3,2.1],  coef:[0.52,0.32,0.22,0.13] },
+  ];
+  let lines = [];
+
+  function buildLines(){
+    if(lines.length) return;
+    const bgs=[], fills=[], dots=[];
+    LINE_CONFIGS.forEach(cfg => {
+      const bg = document.createElementNS(SVGNS,'path');
+      bg.setAttribute('fill','none'); bg.setAttribute('vector-effect','non-scaling-stroke');
+      bg.setAttribute('stroke','rgba(255,255,255,0.06)'); bg.setAttribute('stroke-width', cfg.width);
+      bg.setAttribute('stroke-linecap','round'); bg.setAttribute('stroke-linejoin','round');
+      const fill = document.createElementNS(SVGNS,'path');
+      fill.setAttribute('fill','none'); fill.setAttribute('vector-effect','non-scaling-stroke');
+      fill.setAttribute('stroke', cfg.color); fill.setAttribute('stroke-width', cfg.width);
+      fill.setAttribute('stroke-linecap','round'); fill.setAttribute('stroke-linejoin','round');
+      fill.style.filter = `drop-shadow(0 0 6px ${cfg.glow})`;
+      const dot = document.createElementNS(SVGNS,'circle');
+      dot.setAttribute('r', cfg.dot);
+      dot.setAttribute('fill', cfg.color === 'url(#spineGrad)' ? '#fff' : cfg.color);
+      dot.setAttribute('cx',-40); dot.setAttribute('cy',-40);
+      dot.style.filter = `drop-shadow(0 0 8px ${cfg.glow})`;
+      bgs.push(bg); fills.push(fill); dots.push(dot);
+      lines.push({ bg, fill, dot, cfg, len:0 });
+    });
+    // paint order: tracks behind, then fills, then dots on top
+    bgs.forEach(e=>svg.appendChild(e));
+    fills.forEach(e=>svg.appendChild(e));
+    dots.forEach(e=>svg.appendChild(e));
+  }
+
   function buildPath(){
     const W = landing.clientWidth;
     const H = landing.scrollHeight;
     if(!W || !H) return;
+    buildLines();
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     svg.style.height = H + 'px';
 
-    const cx  = W / 2;
-    const amp = Math.min(W * 0.34, 340);    // how far it swings left/right
-    // Layered waves at non-integer frequency ratios => organic, non-repeating
-    // bends that look random but stay stable across resizes.
-    const base = Math.max(4, H / 440) * Math.PI * 2 / H;  // more bends overall
-    const f1 = base, f2 = base * 2.37, f3 = base * 0.61, f4 = base * 4.13;
-    const step = 11;
+    const cx   = W / 2;
+    const amp  = Math.min(W * 0.30, 320);
+    const base = Math.max(5, H / 380) * Math.PI * 2 / H;  // lots of bends
+    const step = 10;
 
-    let d = '';
-    for(let y = 0; y <= H; y += step){
-      const wobble =
-          0.58 * Math.sin(y * f1)
-        + 0.24 * Math.sin(y * f2 + 1.3)
-        + 0.18 * Math.sin(y * f3 + 2.1)
-        + 0.11 * Math.sin(y * f4 + 0.7);
-      const x = cx + amp * wobble;
-      d += (y === 0 ? `M ${x.toFixed(1)} 0` : ` L ${x.toFixed(1)} ${y.toFixed(1)}`);
-    }
-    bgPath.setAttribute('d', d);
-    fillPath.setAttribute('d', d);
-    pathLen = fillPath.getTotalLength();
-    fillPath.style.strokeDasharray = pathLen;
-    fillPath.style.strokeDashoffset = pathLen;
+    lines.forEach(line => {
+      const cfg = line.cfg;
+      let d = '';
+      for(let y = 0; y <= H; y += step){
+        let w = 0;
+        for(let k=0; k<cfg.fmul.length; k++){
+          w += cfg.coef[k] * Math.sin(y * base * cfg.fmul[k] + cfg.phase + k*0.7);
+        }
+        const x = cx + W*cfg.cxOff + amp*cfg.ampMul*w;
+        d += (y === 0 ? `M ${x.toFixed(1)} 0` : ` L ${x.toFixed(1)} ${y.toFixed(1)}`);
+      }
+      line.bg.setAttribute('d', d);
+      line.fill.setAttribute('d', d);
+      line.len = line.fill.getTotalLength();
+      line.fill.style.strokeDasharray = line.len;
+      line.fill.style.strokeDashoffset = line.len;
+    });
   }
 
   function onScroll(){
     if(landing.style.display === 'none') return;
     const scrollable = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
     const prog = Math.min(1, Math.max(0, window.scrollY / scrollable));
-    if(pathLen){
-      fillPath.style.strokeDashoffset = pathLen * (1 - prog);
-      const pt = fillPath.getPointAtLength(pathLen * prog);
-      dot.setAttribute('cx', pt.x);
-      dot.setAttribute('cy', pt.y);
-    }
+    lines.forEach(line => {
+      if(!line.len) return;
+      line.fill.style.strokeDashoffset = line.len * (1 - prog);
+      const pt = line.fill.getPointAtLength(line.len * prog);
+      line.dot.setAttribute('cx', pt.x);
+      line.dot.setAttribute('cy', pt.y);
+    });
     parallaxEls.forEach(el => {
       const factor = parseFloat(el.dataset.parallax) || 0;
       el.style.transform = `translateY(${window.scrollY*factor}px)`;
@@ -89,7 +123,7 @@ function initLandingScroll(){
   // page has a real height and the path actually has length.
   function ensureBuilt(tries){
     rebuild();
-    if((pathLen < 50 || landing.scrollHeight < 300) && tries > 0){
+    if(((lines[0]?.len || 0) < 50 || landing.scrollHeight < 300) && tries > 0){
       setTimeout(() => ensureBuilt(tries - 1), 120);
     }
   }
