@@ -12,10 +12,10 @@ const DEMO_ANSWERS = [
 ];
 
 const FONTS = [
-  { label: 'Syne', value: "'Syne', sans-serif" },
+  { label: 'Bricolage Grotesque', value: "'Bricolage Grotesque', sans-serif" },
+  { label: 'Outfit', value: "'Outfit', sans-serif" },
   { label: 'Space Grotesk', value: "'Space Grotesk', sans-serif" },
-  { label: 'Plus Jakarta Sans', value: "'Plus Jakarta Sans', sans-serif" },
-  { label: 'DM Sans', value: "'DM Sans', sans-serif" },
+  { label: 'Syne', value: "'Syne', sans-serif" },
 ];
 
 export default function Landing({ onSignIn }) {

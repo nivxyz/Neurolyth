@@ -66,7 +66,7 @@ export default function Progress({ userExams, userMarks }) {
       const y = pad.top + cH - (v / 100) * cH;
       ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cW, y); ctx.stroke();
       ctx.fillStyle = 'rgba(255,255,255,0.3)';
-      ctx.font = `10px DM Mono, monospace`;
+      ctx.font = `10px JetBrains Mono, monospace`;
       ctx.textAlign = 'right';
       ctx.fillText(`${v}%`, pad.left - 6, y + 4);
     });
@@ -106,7 +106,7 @@ export default function Progress({ userExams, userMarks }) {
       ctx.stroke();
 
       ctx.fillStyle = 'rgba(255,255,255,0.65)';
-      ctx.font = '11px DM Sans, sans-serif';
+      ctx.font = '11px Outfit, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(examSummaries[i].name.slice(0, 10), p.x, H - 8);
     });
@@ -139,7 +139,7 @@ export default function Progress({ userExams, userMarks }) {
       const y = pad.top + cH - (v / 100) * cH;
       ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cW, y); ctx.stroke();
       ctx.fillStyle = 'rgba(255,255,255,0.3)';
-      ctx.font = `10px DM Mono, monospace`;
+      ctx.font = `10px JetBrains Mono, monospace`;
       ctx.textAlign = 'right';
       ctx.fillText(`${v}%`, pad.left - 6, y + 4);
     });
@@ -175,7 +175,7 @@ export default function Progress({ userExams, userMarks }) {
     userExams.forEach((exam, i) => {
       const x = pad.left + (n === 1 ? cW / 2 : (i / (n - 1)) * cW);
       ctx.fillStyle = 'rgba(255,255,255,0.45)';
-      ctx.font = '11px DM Sans, sans-serif';
+      ctx.font = '11px Outfit, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(exam.name.slice(0, 10), x, H - 8);
     });

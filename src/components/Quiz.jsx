@@ -137,7 +137,7 @@ The "answer" field is the 0-based index of the correct option.`;
           <div className="score-sub">
             {score} / {quiz.questions.length} correct
           </div>
-          {saved && <div style={{ fontSize: 12, color: 'var(--green)', marginTop: 6, fontFamily: "'DM Mono', monospace" }}>Saved to history ✓</div>}
+          {saved && <div style={{ fontSize: 12, color: 'var(--green)', marginTop: 6, fontFamily: "'JetBrains Mono', monospace" }}>Saved to history ✓</div>}
           <div className="score-actions">
             <button className="score-btn primary" onClick={() => {
               setAnswers({}); setRevealed({}); setCurrent(0); setFinished(false);
