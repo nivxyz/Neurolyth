@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { geminiGenerate, AI_ENABLED } from '../utils/ai';
-import { genId, syncErrMsg } from '../utils/misc';
+import { genId, syncErrMsg, parseQuizJson } from '../utils/misc';
 
 export default function Flashcards({ user, showToast }) {
   const [decks, setDecks] = useState([]);
@@ -49,8 +49,7 @@ Return ONLY valid JSON, no markdown:
 Use LaTeX math ($...$) where relevant.`;
     try {
       const raw = await geminiGenerate(prompt, null, 'You are a flashcard generator. Return only valid JSON.');
-      const cleaned = raw.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(cleaned);
+      const parsed = parseQuizJson(raw);
       if (!parsed?.cards?.length) throw new Error('Invalid format.');
       const deck = { id: genId(), title: parsed.title || topic, cards: parsed.cards, createdAt: Date.now() };
       const updated = [deck, ...decks];

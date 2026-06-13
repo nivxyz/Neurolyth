@@ -246,7 +246,7 @@ body::after {
 
 .main-content{max-width:1100px;margin:0 auto;padding:56px 48px;}
 .page-hero{margin-bottom:52px;}
-.page-hero h2{font-family:var(--font-display);font-size:clamp(36px,5vw,56px);font-weight:900;letter-spacing:-0.02em;line-height:1;margin-bottom:10px;}
+.page-hero h2{font-family:var(--font-display);font-size:clamp(36px,5vw,56px);font-weight:900;letter-spacing:-0.02em;line-height:1;margin-bottom:10px;overflow:visible;padding-left:3px;}
 .page-hero h2 em{font-style:italic;display:inline-block;color:#ff6b8b;background:linear-gradient(135deg,#ff4d6d,#ff7eb3 45%,#4fa8f7);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
 .page-hero p{font-size:15px;color:var(--muted);max-width:480px;line-height:1.7;}
 
