@@ -57,8 +57,16 @@ export default function Marks({ user, userExams, userMarks, saveExamsData, showT
   }
 
   // ── Marks helpers ──────────────────────────────────────────
-  function handleMarkChange(examId, subjId, val) {
-    setLocalMarks(prev => ({ ...prev, [examId]: { ...(prev[examId] || {}), [subjId]: val } }));
+  function handleMarkChange(examId, subjId, val, max) {
+    let clamped = val;
+    if (val !== '') {
+      const n = parseFloat(val);
+      if (!isNaN(n)) {
+        if (n < 0) clamped = '0';
+        else if (n > max) clamped = String(max);
+      }
+    }
+    setLocalMarks(prev => ({ ...prev, [examId]: { ...(prev[examId] || {}), [subjId]: clamped } }));
     setInputErr('');
     setResults(prev => ({ ...prev, [examId]: null }));
   }
@@ -66,22 +74,25 @@ export default function Marks({ user, userExams, userMarks, saveExamsData, showT
   function calcResults(exam) {
     setInputErr('');
     const marks = localMarks[exam.id] || {};
-    for (const s of exam.subjects) {
-      const v = parseFloat(marks[s.id]);
-      if (marks[s.id] !== '' && marks[s.id] !== undefined && (isNaN(v) || v < 0 || v > s.max)) {
-        setInputErr(`"${s.name}" mark must be between 0 and ${s.max}.`); return;
-      }
+    // Require all subjects to have a mark entered
+    const missing = exam.subjects.filter(s => marks[s.id] === '' || marks[s.id] === undefined);
+    if (missing.length > 0) {
+      setInputErr(`Enter marks for: ${missing.map(s => s.name).join(', ')}.`);
+      return;
     }
     const rows = exam.subjects.map(s => {
-      const raw = marks[s.id];
-      const got = raw === '' || raw === undefined ? null : parseFloat(raw);
-      const pct = got !== null ? Math.round((got / s.max) * 100) : null;
+      const got = parseFloat(marks[s.id]);
+      if (isNaN(got) || got < 0 || got > s.max) {
+        setInputErr(`"${s.name}" must be between 0 and ${s.max}.`);
+        return null;
+      }
+      const pct = Math.round((got / s.max) * 100);
       return { name: s.name, got, max: s.max, pct };
     });
-    const entered = rows.filter(r => r.got !== null);
-    const totalGot = entered.reduce((a, r) => a + r.got, 0);
-    const totalMax = entered.reduce((a, r) => a + r.max, 0);
-    const overall = totalMax > 0 ? Math.round((totalGot / totalMax) * 100) : null;
+    if (rows.includes(null)) return;
+    const totalGot = rows.reduce((a, r) => a + r.got, 0);
+    const totalMax = rows.reduce((a, r) => a + r.max, 0);
+    const overall = Math.round((totalGot / totalMax) * 100);
     setResults(prev => ({ ...prev, [exam.id]: { rows, overall, totalGot, totalMax } }));
   }
 
@@ -211,7 +222,7 @@ export default function Marks({ user, userExams, userMarks, saveExamsData, showT
                         <div className="subject-row" key={s.id}>
                           <div className="s-icon">{s.name.slice(0, 3).toUpperCase()}</div>
                           <div className="s-name">{s.name}</div>
-                          <input className="mark-input" type="number" min="0" max={s.max} placeholder="—" value={val} onChange={e => handleMarkChange(exam.id, s.id, e.target.value)} />
+                          <input className="mark-input" type="number" min="0" max={s.max} placeholder="—" value={val} onChange={e => handleMarkChange(exam.id, s.id, e.target.value, s.max)} />
                           <span className="out-of">/ {s.max}</span>
                           <span className="pct-badge" style={{ color: pct !== null ? pctColor(pct) : undefined }}>{pct !== null ? `${pct}%` : ''}</span>
                         </div>
