@@ -95,11 +95,25 @@ export default function Todo({ user, showToast, userExams = [] }) {
   const done = visibleTasks.filter(t => t.done).length;
   const total = visibleTasks.length;
 
+  const dueSoon = tasks.filter(t => {
+    if (t.done || !t.deadline) return false;
+    const days = Math.round((new Date(t.deadline + 'T00:00:00') - new Date()) / 86400000);
+    return days >= 0 && days <= 7;
+  }).length;
+
   return (
     <>
       <div className="page-hero">
         <h2>Your <em>Tasks</em></h2>
         <p>Stay on top of assignments, deadlines, and study goals.</p>
+        {!loading && dueSoon > 0 && (
+          <div className={`hero-stat-chip ${dueSoon >= 3 ? 'hero-chip-warn' : 'hero-chip-muted'}`}>
+            {dueSoon} due this week
+          </div>
+        )}
+        {!loading && tasks.length > 0 && dueSoon === 0 && (
+          <div className="hero-stat-chip hero-chip-ok">All on track</div>
+        )}
       </div>
 
       <div className="todo-layout">
@@ -180,7 +194,15 @@ export default function Todo({ user, showToast, userExams = [] }) {
           {loading ? (
             <div className="tasks-loading">Loading tasks…</div>
           ) : visibleTasks.length === 0 ? (
-            <div className="empty-tasks">{filterSubject === 'All' ? 'No tasks yet — add one to get started' : `No tasks for ${filterSubject}`}</div>
+            <div className="empty-state">
+              <div className="empty-state-icon">✓</div>
+              <div className="empty-state-title">
+                {filterSubject === 'All' ? 'All clear' : `No ${filterSubject} tasks`}
+              </div>
+              <p className="empty-state-sub">
+                {filterSubject === 'All' ? 'Add a task above to get started.' : `No tasks filed under ${filterSubject}.`}
+              </p>
+            </div>
           ) : (
             <div className="task-list">
               {visibleTasks.map(task => {
@@ -193,7 +215,7 @@ export default function Todo({ user, showToast, userExams = [] }) {
                       <div className="task-meta">
                         <span className={`meta-chip chip-pri ${task.priority}`}>{task.priority}</span>
                         {task.subject && <span className="meta-chip chip-subject">{task.subject}</span>}
-                        {dl && <span className={`meta-chip chip-deadline ${dl.cls}`}>{dl.label}</span>}
+                        {dl && <span className={`meta-chip chip-deadline ${dl.cls}`} style={{ marginLeft: 'auto' }}>{dl.label}</span>}
                       </div>
                     </div>
                     <button className="del-btn" onClick={() => deleteTask(task.id)}>×</button>

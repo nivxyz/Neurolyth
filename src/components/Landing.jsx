@@ -11,17 +11,9 @@ const DEMO_ANSWERS = [
   '**Photosynthesis** is the process plants use to convert light energy into chemical energy (glucose).\n\nThe overall equation is:\n$$6CO_2 + 6H_2O + \\text{light} \\rightarrow C_6H_{12}O_6 + 6O_2$$\n\nIt happens in the chloroplasts through two stages: the light-dependent reactions and the Calvin cycle.',
 ];
 
-const FONTS = [
-  { label: 'Bricolage Grotesque', value: "'Bricolage Grotesque', sans-serif" },
-  { label: 'Outfit', value: "'Outfit', sans-serif" },
-  { label: 'Space Grotesk', value: "'Space Grotesk', sans-serif" },
-  { label: 'Syne', value: "'Syne', sans-serif" },
-];
-
 export default function Landing({ onSignIn }) {
   const landingRef = useRef(null);
   const svgRef = useRef(null);
-  const [activeFont, setActiveFont] = useState(0);
 
   // ── Scroll line SVG animation ──────────────────────────────
   useEffect(() => {
@@ -136,11 +128,6 @@ export default function Landing({ onSignIn }) {
     return () => hero.removeEventListener('mousemove', move);
   }, []);
 
-  // ── Font tester ────────────────────────────────────────────
-  useEffect(() => {
-    document.documentElement.style.setProperty('--font-display', FONTS[activeFont].value);
-  }, [activeFont]);
-
   return (
     <div id="screen-landing" ref={landingRef}>
       <svg className="scroll-path" ref={svgRef} />
@@ -240,22 +227,6 @@ export default function Landing({ onSignIn }) {
         <span className="brand-accent">Neurolyth</span> — built for students
       </footer>
 
-      {/* Font tester */}
-      <div className="font-tester">
-        <div className="font-tester-label">Heading font</div>
-        <div className="font-tester-btns">
-          {FONTS.map((f, i) => (
-            <button
-              key={f.label}
-              className={activeFont === i ? 'active' : ''}
-              style={{ fontFamily: f.value }}
-              onClick={() => setActiveFont(i)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

@@ -6,6 +6,35 @@ import { parseQuizJson, renderMath } from '../utils/misc';
 
 const NUM_OPTIONS = ['5', '10', '15', '20'];
 
+function ScoreRing({ pct }) {
+  const [live, setLive] = useState(0);
+  const radius = 60;
+  const circ = 2 * Math.PI * radius;
+  const color = pct >= 75 ? 'var(--green)' : pct >= 50 ? 'var(--yellow)' : 'var(--red)';
+
+  useEffect(() => {
+    const t = setTimeout(() => setLive(pct), 80);
+    return () => clearTimeout(t);
+  }, [pct]);
+
+  const dash = (live / 100) * circ;
+
+  return (
+    <svg className="score-ring" width="160" height="160" viewBox="0 0 160 160">
+      <circle cx="80" cy="80" r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10"/>
+      <circle
+        cx="80" cy="80" r={radius} fill="none"
+        stroke={color}
+        strokeWidth="10" strokeLinecap="round"
+        strokeDasharray={`${dash} ${circ}`}
+        style={{ transform: 'rotate(-90deg)', transformOrigin: '80px 80px', transition: 'stroke-dasharray 1.1s cubic-bezier(0.34,1.2,0.64,1)' }}
+      />
+      <text x="80" y="75" textAnchor="middle" fill="white" fontSize="30" fontWeight="800" fontFamily="'Bricolage Grotesque',sans-serif">{pct}%</text>
+      <text x="80" y="95" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="12" fontFamily="'Outfit',sans-serif">score</text>
+    </svg>
+  );
+}
+
 export default function Quiz({ showToast, user }) {
   const [topic, setTopic] = useState('');
   const [file, setFile] = useState(null);
@@ -127,10 +156,7 @@ The "answer" field is the 0-based index of the correct option.`;
           <h2>Quiz <em>Maker</em></h2>
         </div>
         <div className="score-wrap">
-          <div className="score-label">Your score</div>
-          <div className={`score-big ${pct >= 75 ? 'great' : pct >= 50 ? 'ok' : 'poor'}`}>
-            {pct}%
-          </div>
+          <ScoreRing pct={pct} />
           <div className="score-desc">
             {pct >= 90 ? 'Outstanding!' : pct >= 75 ? 'Great work!' : pct >= 50 ? 'Not bad!' : 'Keep practising!'}
           </div>

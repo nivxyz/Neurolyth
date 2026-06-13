@@ -215,8 +215,10 @@ Use LaTeX math ($...$) ONLY for actual mathematical equations and formulas. Do N
           + New deck
         </button>
         {decks.length === 0 ? (
-          <div className="empty-tasks" style={{ marginTop: 24 }}>
-            No decks yet — generate one to get started
+          <div className="empty-state" style={{ marginTop: 24 }}>
+            <div className="empty-state-icon">◫</div>
+            <div className="empty-state-title">No decks yet</div>
+            <p className="empty-state-sub">Your first deck is one prompt away.</p>
           </div>
         ) : (
           <div className="fc-deck-grid">
