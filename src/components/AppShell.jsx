@@ -126,7 +126,7 @@ export default function AppShell({ user, showToast }) {
           <Progress userExams={userExams} userMarks={userMarks} />
         </div>
         <div className={`panel${activeTab === 'Quiz' ? ' active' : ''}`}>
-          <Quiz showToast={showToast} />
+          <Quiz showToast={showToast} user={user} />
         </div>
         <div className={`panel${activeTab === 'Flashcards' ? ' active' : ''}`}>
           <Flashcards user={user} showToast={showToast} />

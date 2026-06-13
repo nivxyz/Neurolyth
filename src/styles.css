@@ -516,6 +516,7 @@ textarea.form-input{resize:vertical;min-height:100px;line-height:1.6;}
 @keyframes aiTypingBob{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
 .ai-bubble.typing-caret::after{content:'▋';display:inline-block;margin-left:1px;color:var(--accent);animation:caretBlink 1s steps(1) infinite;}
 @keyframes caretBlink{0%,50%{opacity:1}50.01%,100%{opacity:0}}
+.tw-cursor{display:inline-block;width:2px;height:0.85em;background:var(--accent);vertical-align:text-bottom;margin-left:2px;animation:caretBlink 1s steps(1) infinite;}
 .ai-bubble.formatted{white-space:normal;}
 .ai-bubble.formatted p{margin:0 0 9px;}
 .ai-bubble.formatted p:last-child{margin-bottom:0;}

@@ -213,9 +213,7 @@ export default function Landing({ onSignIn }) {
         <div className="lp-ai-inner">
           <div className="lp-ai-copy">
             <span className="lp-kicker reveal">Powered by AI</span>
-            <h2 className="lp-section-title reveal">
-              Your personal<br /><em>AI tutor</em>
-            </h2>
+            <TypewriterHeading />
             <p className="reveal">
               Ask anything — get clear, concise answers with proper maths formatting. The AI remembers your conversation history so it stays in context.
             </p>
@@ -259,6 +257,60 @@ export default function Landing({ onSignIn }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// ── TypewriterHeading ─────────────────────────────────────────
+function TypewriterHeading() {
+  const LINE1 = 'Your personal';
+  const LINE2 = 'AI tutor';
+  const [l1, setL1] = useState('');
+  const [l2, setL2] = useState('');
+  const [step, setStep] = useState(0); // 0=wait, 1=type line1, 2=type line2, 3=done
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) { setStep(1); obs.unobserve(el); } },
+      { threshold: 0.3 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (step !== 1) return;
+    let i = 0;
+    const iv = setInterval(() => {
+      i++;
+      setL1(LINE1.slice(0, i));
+      if (i >= LINE1.length) { clearInterval(iv); setTimeout(() => setStep(2), 300); }
+    }, 52);
+    return () => clearInterval(iv);
+  }, [step === 1]);
+
+  useEffect(() => {
+    if (step !== 2) return;
+    let i = 0;
+    const iv = setInterval(() => {
+      i++;
+      setL2(LINE2.slice(0, i));
+      if (i >= LINE2.length) { clearInterval(iv); setStep(3); }
+    }, 78);
+    return () => clearInterval(iv);
+  }, [step === 2]);
+
+  return (
+    <h2 className="lp-section-title" ref={ref} style={{ minHeight: '2.8em' }}>
+      {step > 0 && (
+        <>
+          {l1}{step === 1 && <span className="tw-cursor" />}
+          {step >= 2 && <><br /><em>{l2}{step === 2 && <span className="tw-cursor" />}</em></>}
+        </>
+      )}
+    </h2>
   );
 }
 
@@ -344,20 +396,15 @@ function DemoChat({ onSignIn }) {
         {messages.map((msg, i) => (
           <div
             key={i}
-            className={`lp-ai-line ${msg.role}${msg.done ? ' formatted' : ''}`}
+            className={`lp-ai-line ${msg.role}${msg.typing ? ' typing' : ''}${msg.done ? ' formatted' : ''}`}
             ref={el => { msgRefs.current[i] = el; }}
-            {...(msg.done
-              ? { dangerouslySetInnerHTML: { __html: formatMarkdown(msg.content) } }
-              : msg.typing
-              ? {}
-              : { children: msg.content }
-            )}
+            {...(msg.done ? { dangerouslySetInnerHTML: { __html: formatMarkdown(msg.content) } } : {})}
           >
-            {msg.typing && (
-              <>
-                <span /><span /><span />
-              </>
-            )}
+            {msg.typing ? (
+              <><span /><span /><span /></>
+            ) : !msg.done ? (
+              msg.content
+            ) : null}
           </div>
         ))}
         {!busy && !hitLimit && (

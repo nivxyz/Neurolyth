@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import { geminiGenerate, AI_ENABLED } from '../utils/ai';
 import { parseQuizJson, renderMath } from '../utils/misc';
 
 const NUM_OPTIONS = ['5', '10', '15', '20'];
 
-export default function Quiz({ showToast }) {
+export default function Quiz({ showToast, user }) {
   const [topic, setTopic] = useState('');
   const [file, setFile] = useState(null);
   const [numQ, setNumQ] = useState('10');
@@ -16,6 +18,7 @@ export default function Quiz({ showToast }) {
   const [current, setCurrent] = useState(0);
   const [finished, setFinished] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [saved, setSaved] = useState(false);
   const cardRef = useRef(null);
   const questionRefs = useRef([]);
 
@@ -25,6 +28,23 @@ export default function Quiz({ showToast }) {
     }
   }, [quiz, current]);
 
+  useEffect(() => {
+    if (!finished || !quiz || !user) return;
+    const score = quiz.questions.filter((q, i) => answers[i] === q.answer).length;
+    const pct = Math.round((score / quiz.questions.length) * 100);
+    const entry = { id: Date.now(), title: quiz.title, date: new Date().toISOString(), score, total: quiz.questions.length, pct };
+    async function save() {
+      try {
+        const ref = doc(db, 'users', user.uid, 'data', 'quizHistory');
+        const snap = await getDoc(ref);
+        const existing = snap.exists() ? (snap.data().history || []) : [];
+        await setDoc(ref, { history: [entry, ...existing].slice(0, 20) });
+        setSaved(true);
+      } catch { /* non-critical */ }
+    }
+    save();
+  }, [finished]);
+
   async function generate() {
     if (!topic.trim() && !file) { showToast('Enter a topic or upload a file.', true); return; }
     setLoading(true);
@@ -33,6 +53,7 @@ export default function Quiz({ showToast }) {
     setRevealed({});
     setCurrent(0);
     setFinished(false);
+    setSaved(false);
 
     const prompt = `Generate a ${numQ}-question multiple-choice quiz on: ${topic || 'the uploaded document'}.
 Difficulty: ${difficulty}.
@@ -116,6 +137,7 @@ The "answer" field is the 0-based index of the correct option.`;
           <div className="score-sub">
             {score} / {quiz.questions.length} correct
           </div>
+          {saved && <div style={{ fontSize: 12, color: 'var(--green)', marginTop: 6, fontFamily: "'DM Mono', monospace" }}>Saved to history ✓</div>}
           <div className="score-actions">
             <button className="score-btn primary" onClick={() => {
               setAnswers({}); setRevealed({}); setCurrent(0); setFinished(false);
