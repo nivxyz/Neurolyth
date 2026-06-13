@@ -151,7 +151,7 @@ The "answer" field is the 0-based index of the correct option.`;
           <div className="qprogress">
             <div className="qprogress-fill" style={{ width: `${((current + 1) / total) * 100}%` }} />
           </div>
-          <div className="q-card" ref={el => { questionRefs.current[current] = el; }}>
+          <div className="q-card" key={current} ref={el => { questionRefs.current[current] = el; }}>
             <div className="q-num">Question {current + 1}</div>
             <div className="q-text">{q.question}</div>
             <div className="q-options">
