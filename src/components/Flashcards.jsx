@@ -2,7 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { geminiGenerate, AI_ENABLED } from '../utils/ai';
-import { genId, syncErrMsg, parseQuizJson } from '../utils/misc';
+import { genId, syncErrMsg, parseQuizJson, renderMath } from '../utils/misc';
+
+function MathText({ text }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (ref.current) renderMath(ref.current);
+  }, [text]);
+  return <div className="fc-text" ref={ref}>{text}</div>;
+}
 
 export default function Flashcards({ user, showToast }) {
   const [decks, setDecks] = useState([]);
@@ -46,7 +54,7 @@ export default function Flashcards({ user, showToast }) {
     const prompt = `Generate ${numCards} flashcards on: ${topic}.
 Return ONLY valid JSON, no markdown:
 {"title":"...", "cards":[{"front":"Question or term","back":"Answer or definition"},...]}
-Use LaTeX math ($...$) where relevant.`;
+Use LaTeX math ($...$) ONLY for actual mathematical equations and formulas. Do NOT use LaTeX for code snippets, HTML tags, programming syntax, or plain text — write those as regular text.`;
     try {
       const raw = await geminiGenerate(prompt, null, 'You are a flashcard generator. Return only valid JSON.');
       const parsed = parseQuizJson(raw);
@@ -104,12 +112,12 @@ Use LaTeX math ($...$) where relevant.`;
             <div className={`fc-card${flipped ? ' flipped' : ''}`}>
               <div className="fc-face fc-front">
                 <div className="fc-side-label">Front</div>
-                <div className="fc-text">{card.front}</div>
+                <MathText text={card.front} />
                 <div className="fc-tap-hint">Tap to reveal</div>
               </div>
               <div className="fc-face fc-back">
                 <div className="fc-side-label">Back</div>
-                <div className="fc-text">{card.back}</div>
+                <MathText text={card.back} />
               </div>
             </div>
           </div>

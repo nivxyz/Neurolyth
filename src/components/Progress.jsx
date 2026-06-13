@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { pctColor, grade } from '../utils/misc';
 
-const CHART_COLORS = ['#ff4d6d', '#4fa8f7', '#00e5a0', '#a78bfa', '#f7c948', '#fb923c'];
+const CHART_COLORS = ['#7c6aff', '#4fa8f7', '#00e5a0', '#f7c948', '#f06070', '#fb923c'];
 
 export default function Progress({ userExams, userMarks }) {
   const overallCanvasRef = useRef(null);
@@ -78,8 +78,8 @@ export default function Progress({ userExams, userMarks }) {
     }));
 
     const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + cH);
-    grad.addColorStop(0, 'rgba(255,77,109,0.35)');
-    grad.addColorStop(1, 'rgba(255,77,109,0)');
+    grad.addColorStop(0, 'rgba(124,106,255,0.28)');
+    grad.addColorStop(1, 'rgba(124,106,255,0)');
     ctx.beginPath();
     ctx.moveTo(pts[0].x, pad.top + cH);
     pts.forEach(p => ctx.lineTo(p.x, p.y));
@@ -90,7 +90,7 @@ export default function Progress({ userExams, userMarks }) {
 
     ctx.beginPath();
     pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-    ctx.strokeStyle = '#ff4d6d';
+    ctx.strokeStyle = '#7c6aff';
     ctx.lineWidth = 2.5;
     ctx.lineJoin = 'round';
     ctx.stroke();
@@ -99,7 +99,7 @@ export default function Progress({ userExams, userMarks }) {
     pts.forEach((p, i) => {
       ctx.beginPath();
       ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-      ctx.fillStyle = '#ff4d6d';
+      ctx.fillStyle = '#7c6aff';
       ctx.fill();
       ctx.strokeStyle = 'rgba(7,9,18,0.8)';
       ctx.lineWidth = 2;
