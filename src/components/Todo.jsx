@@ -7,14 +7,18 @@ import { genId, deadlineInfo, syncErrMsg } from '../utils/misc';
 
 const PRIORITIES = ['high', 'medium', 'low'];
 
-export default function Todo({ user, showToast }) {
+export default function Todo({ user, showToast, userExams = [] }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState('');
   const [subject, setSubject] = useState('');
   const [priority, setPriority] = useState('high');
   const [deadline, setDeadline] = useState('');
+  const [filterSubject, setFilterSubject] = useState('All');
   const mountedRef = useRef(true);
+
+  // Unique subjects from exams + existing tasks
+  const examSubjects = [...new Set(userExams.flatMap(e => e.subjects.map(s => s.name)))];
 
   useEffect(() => {
     mountedRef.current = true;
@@ -51,14 +55,10 @@ export default function Todo({ user, showToast }) {
     setDeadline('');
 
     const tempId = genId();
-    const tempTask = { ...task, id: tempId };
-    setTasks(prev => [tempTask, ...prev]);
-
+    setTasks(prev => [{ ...task, id: tempId }, ...prev]);
     try {
       const ref = await addDoc(collection(db, 'users', user.uid, 'tasks'), task);
-      if (mountedRef.current) {
-        setTasks(prev => prev.map(t => t.id === tempId ? { ...t, id: ref.id } : t));
-      }
+      if (mountedRef.current) setTasks(prev => prev.map(t => t.id === tempId ? { ...t, id: ref.id } : t));
     } catch (e) {
       if (mountedRef.current) {
         setTasks(prev => prev.filter(t => t.id !== tempId));
@@ -79,9 +79,7 @@ export default function Todo({ user, showToast }) {
 
   async function deleteTask(id) {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, removing: true } : t));
-    setTimeout(() => {
-      setTasks(prev => prev.filter(t => t.id !== id));
-    }, 280);
+    setTimeout(() => setTasks(prev => prev.filter(t => t.id !== id)), 280);
     try {
       await deleteDoc(doc(db, 'users', user.uid, 'tasks', id));
     } catch (e) {
@@ -90,8 +88,12 @@ export default function Todo({ user, showToast }) {
     }
   }
 
-  const done = tasks.filter(t => t.done).length;
-  const total = tasks.length;
+  const allTaskSubjects = [...new Set(tasks.map(t => t.subject).filter(Boolean))];
+  const filterOptions = ['All', ...new Set([...examSubjects, ...allTaskSubjects])];
+  const visibleTasks = filterSubject === 'All' ? tasks : tasks.filter(t => t.subject === filterSubject);
+
+  const done = visibleTasks.filter(t => t.done).length;
+  const total = visibleTasks.length;
 
   return (
     <>
@@ -121,20 +123,21 @@ export default function Todo({ user, showToast }) {
             <input
               className="form-input"
               type="text"
-              placeholder="e.g. Maths, Physics…"
+              placeholder={examSubjects.length ? 'Pick or type a subject…' : 'e.g. Maths, Physics…'}
               value={subject}
               onChange={e => setSubject(e.target.value)}
+              list="subj-list"
             />
+            {examSubjects.length > 0 && (
+              <datalist id="subj-list">
+                {examSubjects.map(s => <option key={s} value={s} />)}
+              </datalist>
+            )}
           </div>
 
           <div className="form-field">
             <label className="form-label">Deadline</label>
-            <input
-              className="form-input"
-              type="date"
-              value={deadline}
-              onChange={e => setDeadline(e.target.value)}
-            />
+            <input className="form-input" type="date" value={deadline} onChange={e => setDeadline(e.target.value)} />
           </div>
 
           <div className="form-field">
@@ -152,51 +155,45 @@ export default function Todo({ user, showToast }) {
             </div>
           </div>
 
-          <button className="add-task-btn" onClick={addTask} disabled={!text.trim()}>
-            Add task
-          </button>
+          <button className="add-task-btn" onClick={addTask} disabled={!text.trim()}>Add task</button>
         </div>
 
         <div className="tasks-side">
+          {filterOptions.length > 1 && (
+            <div className="todo-filter-row">
+              {filterOptions.map(s => (
+                <button
+                  key={s}
+                  className={`todo-filter-btn${filterSubject === s ? ' active' : ''}`}
+                  onClick={() => setFilterSubject(s)}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="todo-stats-bar">
-            <span>
-              <span className="stat-dot" style={{ background: 'var(--green)' }} />
-              {done} done
-            </span>
-            <span>
-              <span className="stat-dot" style={{ background: 'var(--muted)' }} />
-              {total - done} remaining
-            </span>
+            <span><span className="stat-dot" style={{ background: 'var(--green)' }} />{done} done</span>
+            <span><span className="stat-dot" style={{ background: 'var(--muted)' }} />{total - done} remaining</span>
           </div>
 
           {loading ? (
             <div className="tasks-loading">Loading tasks…</div>
-          ) : tasks.length === 0 ? (
-            <div className="empty-tasks">No tasks yet — add one to get started</div>
+          ) : visibleTasks.length === 0 ? (
+            <div className="empty-tasks">{filterSubject === 'All' ? 'No tasks yet — add one to get started' : `No tasks for ${filterSubject}`}</div>
           ) : (
             <div className="task-list">
-              {tasks.map(task => {
+              {visibleTasks.map(task => {
                 const dl = deadlineInfo(task.deadline);
                 return (
-                  <div
-                    key={task.id}
-                    className={`task-item pri-${task.priority}${task.done ? ' done' : ''}${task.removing ? ' removing' : ''}`}
-                  >
-                    <button className="check-btn" onClick={() => toggleDone(task)}>
-                      {task.done ? '✓' : ''}
-                    </button>
+                  <div key={task.id} className={`task-item pri-${task.priority}${task.done ? ' done' : ''}${task.removing ? ' removing' : ''}`}>
+                    <button className="check-btn" onClick={() => toggleDone(task)}>{task.done ? '✓' : ''}</button>
                     <div className="task-body">
                       <div className="task-text">{task.text}</div>
                       <div className="task-meta">
-                        <span className={`meta-chip chip-pri ${task.priority}`}>
-                          {task.priority}
-                        </span>
-                        {task.subject && (
-                          <span className="meta-chip chip-subject">{task.subject}</span>
-                        )}
-                        {dl && (
-                          <span className={`meta-chip chip-deadline ${dl.cls}`}>{dl.label}</span>
-                        )}
+                        <span className={`meta-chip chip-pri ${task.priority}`}>{task.priority}</span>
+                        {task.subject && <span className="meta-chip chip-subject">{task.subject}</span>}
+                        {dl && <span className={`meta-chip chip-deadline ${dl.cls}`}>{dl.label}</span>}
                       </div>
                     </div>
                     <button className="del-btn" onClick={() => deleteTask(task.id)}>×</button>

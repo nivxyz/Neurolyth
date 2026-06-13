@@ -53,6 +53,7 @@ export default function AI({ user, showToast }) {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [animatingId, setAnimatingId] = useState(null);
+  const [aiMode, setAiMode] = useState('chat');
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const mountedRef = useRef(true);
@@ -220,7 +221,14 @@ export default function AI({ user, showToast }) {
         <p>Your personal study assistant — ask anything.</p>
       </div>
 
-      <div className="ai-layout">
+      <div className="ai-mode-tabs">
+        <button className={`ai-mode-tab${aiMode === 'chat' ? ' active' : ''}`} onClick={() => setAiMode('chat')}>Chat</button>
+        <button className={`ai-mode-tab${aiMode === 'summarise' ? ' active' : ''}`} onClick={() => setAiMode('summarise')}>Summarise notes</button>
+      </div>
+
+      {aiMode === 'summarise' && <Summariser showToast={showToast} />}
+
+      {aiMode === 'chat' && <div className="ai-layout">
         {/* Sidebar */}
         <div className="ai-sidebar">
           <button className="ai-newchat-btn" onClick={handleNewChat}>+ New chat</button>
@@ -301,8 +309,95 @@ export default function AI({ user, showToast }) {
             </button>
           </div>
         </div>
-      </div>
+      </div>}
     </>
+  );
+}
+
+function Summariser({ showToast }) {
+  const [notes, setNotes] = useState('');
+  const [file, setFile] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+
+  async function summarise() {
+    if (!notes.trim() && !file) return;
+    setBusy(true);
+    setResult(null);
+    const prompt = `Summarise the following study notes. Return ONLY valid JSON, no markdown:
+{"summary":"2-3 sentence overview","keyPoints":["point 1","point 2","..."],"keyTerms":[{"term":"...","definition":"..."}]}
+
+Notes:
+${notes || '(see uploaded file)'}`;
+    try {
+      const raw = await geminiGenerate(prompt, file || null, 'You are a note summariser. Return only valid JSON.');
+      const cleaned = raw.replace(/```json|```/g, '').trim();
+      setResult(JSON.parse(cleaned));
+    } catch (e) {
+      showToast(e.message || 'Summarisation failed.', true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="summariser">
+      <div className="quiz-input-card" style={{ maxWidth: 680 }}>
+        <div className="form-field">
+          <label className="form-label">Paste your notes</label>
+          <textarea className="form-input" rows="6" placeholder="Paste lecture notes, textbook excerpts, revision material…" value={notes} onChange={e => setNotes(e.target.value)} />
+        </div>
+        <div className="quiz-or-divider">or upload a file</div>
+        {!file ? (
+          <div className="quiz-upload-zone" style={{ marginBottom: 14 }}>
+            <input type="file" accept=".pdf,.txt,.doc,.docx" onChange={e => setFile(e.target.files[0])} />
+            <span className="quiz-upload-icon">📄</span>
+            <div className="quiz-upload-label">PDF, TXT, or DOC</div>
+          </div>
+        ) : (
+          <div className="quiz-file-chip" style={{ marginBottom: 14 }}>
+            <span className="fc-ext">{file.name.split('.').pop().toUpperCase()}</span>
+            <span className="fc-name">{file.name}</span>
+            <button className="fc-remove" onClick={() => setFile(null)}>×</button>
+          </div>
+        )}
+        <button className="gen-quiz-btn" style={{ width: '100%' }} onClick={summarise} disabled={busy || (!notes.trim() && !file)}>
+          {busy ? 'Summarising…' : 'Summarise'}
+        </button>
+      </div>
+
+      {busy && <div className="quiz-loading"><div className="q-spinner"/><p>Summarising your notes…</p></div>}
+
+      {result && (
+        <div className="summary-result">
+          <div className="summary-section">
+            <div className="summary-section-label">Summary</div>
+            <p className="summary-text">{result.summary}</p>
+          </div>
+          {result.keyPoints?.length > 0 && (
+            <div className="summary-section">
+              <div className="summary-section-label">Key points</div>
+              <ul className="summary-list">
+                {result.keyPoints.map((p, i) => <li key={i}>{p}</li>)}
+              </ul>
+            </div>
+          )}
+          {result.keyTerms?.length > 0 && (
+            <div className="summary-section">
+              <div className="summary-section-label">Key terms</div>
+              <div className="summary-terms">
+                {result.keyTerms.map((t, i) => (
+                  <div key={i} className="summary-term">
+                    <span className="summary-term-name">{t.term}</span>
+                    <span className="summary-term-def">{t.definition}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

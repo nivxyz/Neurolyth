@@ -8,15 +8,24 @@ import Marks from './Marks';
 import Progress from './Progress';
 import Quiz from './Quiz';
 import AI from './AI';
+import Flashcards from './Flashcards';
+import Timetable from './Timetable';
 
-const TABS = ['Tasks', 'Marks', 'Progress', 'Quiz', 'AI'];
+const TABS = ['Tasks', 'Marks', 'Progress', 'Quiz', 'Flashcards', 'Schedule', 'AI'];
 
 export default function AppShell({ user, showToast }) {
   const [activeTab, setActiveTab] = useState('AI');
   const [greeting, setGreeting] = useState('');
   const [userExams, setUserExams] = useState([]);
   const [userMarks, setUserMarks] = useState({});
+  const [theme, setTheme] = useState(() => localStorage.getItem('nlTheme') || 'dark');
   const mountedRef = useRef(true);
+
+  // Apply theme class to body
+  useEffect(() => {
+    document.body.classList.toggle('light', theme === 'light');
+    localStorage.setItem('nlTheme', theme);
+  }, [theme]);
 
   // Typewriter greeting
   useEffect(() => {
@@ -63,26 +72,22 @@ export default function AppShell({ user, showToast }) {
     }
   }
 
-  function handleSignOut() {
-    signOut(auth);
-  }
+  function handleSignOut() { signOut(auth); }
 
   useEffect(() => {
     const el = document.getElementById('screen-app');
-    if (el) {
-      requestAnimationFrame(() => el.classList.add('show'));
-    }
-    return () => {
-      const el2 = document.getElementById('screen-app');
-      if (el2) el2.classList.remove('show');
-    };
+    if (el) requestAnimationFrame(() => el.classList.add('show'));
+    return () => { document.getElementById('screen-app')?.classList.remove('show'); };
   }, []);
 
   return (
     <div id="screen-app">
       <div className="topbar">
         <div className="topbar-brand brand-accent">Neurolyth</div>
-        <div className="topbar-greeting">{greeting}<span style={{ animation: 'caretBlink 1s steps(1) infinite', color: 'var(--accent)' }}>▋</span></div>
+        <div className="topbar-greeting">
+          {greeting}
+          <span style={{ animation: 'caretBlink 1s steps(1) infinite', color: 'var(--accent)' }}>▋</span>
+        </div>
         <nav className="topbar-nav">
           {TABS.map(t => (
             <button
@@ -93,13 +98,20 @@ export default function AppShell({ user, showToast }) {
               {t}
             </button>
           ))}
+          <button
+            className="theme-toggle"
+            onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+            title="Toggle theme"
+          >
+            {theme === 'dark' ? '☀' : '☾'}
+          </button>
           <button className="logout-btn" onClick={handleSignOut}>Sign out</button>
         </nav>
       </div>
 
       <div className="main-content">
         <div className={`panel${activeTab === 'Tasks' ? ' active' : ''}`}>
-          <Todo user={user} showToast={showToast} />
+          <Todo user={user} showToast={showToast} userExams={userExams} />
         </div>
         <div className={`panel${activeTab === 'Marks' ? ' active' : ''}`}>
           <Marks
@@ -115,6 +127,12 @@ export default function AppShell({ user, showToast }) {
         </div>
         <div className={`panel${activeTab === 'Quiz' ? ' active' : ''}`}>
           <Quiz showToast={showToast} />
+        </div>
+        <div className={`panel${activeTab === 'Flashcards' ? ' active' : ''}`}>
+          <Flashcards user={user} showToast={showToast} />
+        </div>
+        <div className={`panel${activeTab === 'Schedule' ? ' active' : ''}`}>
+          <Timetable user={user} showToast={showToast} />
         </div>
         <div className={`panel${activeTab === 'AI' ? ' active' : ''}`}>
           <AI user={user} showToast={showToast} />

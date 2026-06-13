@@ -199,12 +199,35 @@ export default function Progress({ userExams, userMarks }) {
   const best = allPcts.length ? Math.max(...allPcts) : null;
   const avg = allPcts.length ? Math.round(allPcts.reduce((a, b) => a + b, 0) / allPcts.length) : null;
 
+  // Exam countdowns
+  const countdowns = userExams
+    .filter(e => e.examDate)
+    .map(e => {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const d = new Date(e.examDate + 'T00:00:00');
+      const diff = Math.round((d - today) / (1000 * 60 * 60 * 24));
+      return { name: e.name, diff };
+    })
+    .filter(c => c.diff >= 0)
+    .sort((a, b) => a.diff - b.diff);
+
   return (
     <>
       <div className="page-hero">
         <h2><em>Progress</em> Charts</h2>
         <p>Visual tracking of your performance over time.</p>
       </div>
+
+      {countdowns.length > 0 && (
+        <div className="countdown-strip">
+          {countdowns.map(c => (
+            <div key={c.name} className={`countdown-chip${c.diff <= 7 ? ' urgent' : ''}`}>
+              <span className="countdown-name">{c.name}</span>
+              <span className="countdown-days">{c.diff === 0 ? 'Today!' : `${c.diff}d`}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="prog-chips-row">
         <div className="prog-chip">
