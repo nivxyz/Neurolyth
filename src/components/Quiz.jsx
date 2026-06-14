@@ -151,33 +151,38 @@ The "answer" field is the 0-based index of the correct option.`;
     const score = getScore();
     const pct = Math.round((score / quiz.questions.length) * 100);
     return (
-      <>
-        <div className="page-hero">
-          <h2>Quiz <em>Maker</em></h2>
+      <div className="fs-overlay">
+        <div className="fs-topbar">
+          <span className="fs-topbar-title">{quiz.title}</span>
+          <button className="fs-exit-btn" onClick={() => { setQuiz(null); setFile(null); setTopic(''); }}>
+            Exit
+          </button>
         </div>
-        <div className="score-wrap">
-          <ScoreRing pct={pct} />
-          <div className="score-desc">
-            {pct >= 90 ? 'Outstanding!' : pct >= 75 ? 'Great work!' : pct >= 50 ? 'Not bad!' : 'Keep practising!'}
-          </div>
-          <div className="score-sub">
-            {score} / {quiz.questions.length} correct
-          </div>
-          {saved && <div style={{ fontSize: 12, color: 'var(--green)', marginTop: 6, fontFamily: "'JetBrains Mono', monospace" }}>Saved to history ✓</div>}
-          <div className="score-actions">
-            <button className="score-btn primary" onClick={() => {
-              setCurrent(0); setFinished(false);
-            }}>
-              Review answers
-            </button>
-            <button className="score-btn secondary" onClick={() => {
-              setQuiz(null); setFile(null); setTopic('');
-            }}>
-              New quiz
-            </button>
+        <div className="fs-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="score-wrap">
+            <ScoreRing pct={pct} />
+            <div className="score-desc">
+              {pct >= 90 ? 'Outstanding!' : pct >= 75 ? 'Great work!' : pct >= 50 ? 'Not bad!' : 'Keep practising!'}
+            </div>
+            <div className="score-sub">
+              {score} / {quiz.questions.length} correct
+            </div>
+            {saved && <div style={{ fontSize: 12, color: 'var(--green)', marginTop: 6, fontFamily: "'JetBrains Mono', monospace" }}>Saved to history ✓</div>}
+            <div className="score-actions">
+              <button className="score-btn primary" onClick={() => {
+                setCurrent(0); setFinished(false);
+              }}>
+                Review answers
+              </button>
+              <button className="score-btn secondary" onClick={() => {
+                setQuiz(null); setFile(null); setTopic('');
+              }}>
+                New quiz
+              </button>
+            </div>
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
@@ -188,15 +193,16 @@ The "answer" field is the 0-based index of the correct option.`;
     const isRevealed = revealed[current];
     const isReviewMode = Object.keys(answers).length === total;
     return (
-      <>
-        <div className="page-hero">
-          <h2>Quiz <em>Maker</em></h2>
+      <div className="fs-overlay">
+        <div className="fs-topbar">
+          <span className="fs-topbar-title">{quiz.title}</span>
+          <span className="fs-topbar-meta">{current + 1} / {total}</span>
+          <button className="fs-exit-btn" onClick={() => { setQuiz(null); setFile(null); setTopic(''); }}>
+            Exit
+          </button>
         </div>
+        <div className="fs-content">
         <div className="quiz-play-wrap">
-          <div className="quiz-play-header">
-            <div className="quiz-play-title">{quiz.title}</div>
-            <div className="quiz-play-meta">{current + 1} / {total}</div>
-          </div>
           <div className="qprogress">
             <div className="qprogress-fill" style={{ width: `${((current + 1) / total) * 100}%` }} />
           </div>
@@ -251,7 +257,8 @@ The "answer" field is the 0-based index of the correct option.`;
             )}
           </div>
         </div>
-      </>
+        </div>
+      </div>
     );
   }
 

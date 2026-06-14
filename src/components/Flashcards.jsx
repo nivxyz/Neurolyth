@@ -97,16 +97,17 @@ Use LaTeX math ($...$) ONLY for actual mathematical equations and formulas. Do N
     const total = activeDeck.cards.length;
     const progress = Math.round((cardIdx / total) * 100);
     return (
-      <>
-        <div className="page-hero">
-          <h2><em>Flashcards</em></h2>
-          <p>{activeDeck.title}</p>
+      <div className="fs-overlay">
+        <div className="fs-topbar">
+          <span className="fs-topbar-title">{activeDeck.title}</span>
+          <span className="fs-topbar-meta">{cardIdx + 1} / {total}</span>
+          <button className="fs-exit-btn" onClick={() => setView('home')}>Exit</button>
         </div>
+        <div className="fs-content">
         <div className="fc-study-wrap">
           <div className="fc-progress-row">
             <span className="fc-prog-label">{cardIdx + 1} / {total}</span>
             <div className="fc-prog-track"><div className="fc-prog-fill" style={{ width: `${progress}%` }} /></div>
-            <button className="fc-exit-btn" onClick={() => setView('home')}>Exit</button>
           </div>
           <div className="fc-scene" onClick={() => setFlipped(f => !f)}>
             <div className={`fc-card${flipped ? ' flipped' : ''}`}>
@@ -132,15 +133,20 @@ Use LaTeX math ($...$) ONLY for actual mathematical equations and formulas. Do N
             <div className="fc-flip-hint">Click the card to flip it</div>
           )}
         </div>
-      </>
+        </div>
+      </div>
     );
   }
 
   if (view === 'results') {
     const { know, unsure, learning } = piles;
     return (
-      <>
-        <div className="page-hero"><h2><em>Flashcards</em></h2></div>
+      <div className="fs-overlay">
+        <div className="fs-topbar">
+          <span className="fs-topbar-title">{activeDeck?.title}</span>
+          <button className="fs-exit-btn" onClick={() => setView('home')}>Exit</button>
+        </div>
+        <div className="fs-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="fc-results">
           <div className="fc-results-title">Session complete!</div>
           <div className="fc-piles-row">
@@ -162,7 +168,8 @@ Use LaTeX math ($...$) ONLY for actual mathematical equations and formulas. Do N
             <button className="score-btn secondary" onClick={() => setView('home')}>Back to decks</button>
           </div>
         </div>
-      </>
+        </div>
+      </div>
     );
   }
 
