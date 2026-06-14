@@ -55,7 +55,7 @@ export default function Quiz({ showToast, user }) {
     if (quiz && questionRefs.current[current]) {
       renderMath(questionRefs.current[current]);
     }
-  }, [quiz, current]);
+  }, [quiz, current, revealed]);
 
   useEffect(() => {
     if (!finished || !quiz || !user) return;
