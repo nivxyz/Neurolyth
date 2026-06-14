@@ -72,7 +72,7 @@ export default function Quiz({ showToast, user }) {
     if (!finished || !quiz || !user) return;
     const score = quiz.questions.filter((q, i) => answers[i] === q.answer).length;
     const pct = Math.round((score / quiz.questions.length) * 100);
-    const entry = { id: Date.now(), title: quiz.title, date: new Date().toISOString(), score, total: quiz.questions.length, pct };
+    const entry = { id: Date.now(), title: quiz.title, date: new Date().toISOString(), score, total: quiz.questions.length, pct, questions: quiz.questions, userAnswers: answers };
     async function save() {
       try {
         const ref = doc(db, 'users', user.uid, 'data', 'quizHistory');
@@ -85,6 +85,24 @@ export default function Quiz({ showToast, user }) {
     }
     save();
   }, [finished]);
+
+  function retakeQuiz(h) {
+    setQuiz({ title: h.title, questions: h.questions });
+    setAnswers({});
+    setRevealed({});
+    setCurrent(0);
+    setFinished(false);
+  }
+
+  function reviewQuiz(h) {
+    const allRevealed = {};
+    h.questions.forEach((_, i) => { allRevealed[i] = true; });
+    setQuiz({ title: h.title, questions: h.questions });
+    setAnswers(h.userAnswers || {});
+    setRevealed(allRevealed);
+    setCurrent(0);
+    setFinished(false);
+  }
 
   async function generate() {
     if (!topic.trim() && !file) { showToast('Enter a topic or upload a file.', true); return; }
@@ -370,12 +388,21 @@ The "answer" field is the 0-based index of the correct option.`;
               const d = new Date(h.date);
               const dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
               const cls = h.pct >= 75 ? 'great' : h.pct >= 50 ? 'ok' : 'poor';
+              const hasQuestions = !!h.questions;
               return (
                 <div key={h.id} className="quiz-history-item">
-                  <div className="qh-title">{h.title}</div>
+                  <div className="qh-left">
+                    <div className="qh-title">{h.title}</div>
+                    <div className="qh-meta">{h.score}/{h.total} correct · {dateStr}</div>
+                  </div>
                   <div className="qh-right">
                     <span className={`qh-pct ${cls}`}>{h.pct}%</span>
-                    <span className="qh-meta">{h.score}/{h.total} · {dateStr}</span>
+                    {hasQuestions && (
+                      <div className="qh-actions">
+                        <button className="qh-btn" onClick={() => reviewQuiz(h)}>Review</button>
+                        <button className="qh-btn qh-btn-primary" onClick={() => retakeQuiz(h)}>Retake</button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
