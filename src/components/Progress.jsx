@@ -279,6 +279,44 @@ export default function Progress({ userExams, userMarks }) {
           </div>
         </div>
       ) : null}
+
+      {subjectData.length > 0 && (
+        <div className="chart-card">
+          <div className="chart-card-title">Subject overview</div>
+          <div className="sparkline-grid">
+            {subjectData.map((s, si) => {
+              const valid = s.points.filter(p => p !== null);
+              if (!valid.length) return null;
+              const latest = valid[valid.length - 1];
+              const prev = valid.length >= 2 ? valid[valid.length - 2] : null;
+              const trend = prev === null ? '→' : latest > prev + 2 ? '↑' : latest < prev - 2 ? '↓' : '→';
+              const trendColor = trend === '↑' ? 'var(--green)' : trend === '↓' ? 'var(--red)' : 'var(--muted)';
+              const color = CHART_COLORS[si % CHART_COLORS.length];
+              const W = 88; const H = 36;
+              const minP = Math.min(...valid); const maxP = Math.max(...valid);
+              const range = maxP - minP || 10;
+              const pts = valid.map((p, i) => ({
+                x: valid.length === 1 ? W / 2 : (i / (valid.length - 1)) * W,
+                y: H - ((p - minP) / range) * (H - 8) - 4,
+              }));
+              const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+              return (
+                <div key={s.name} className="sparkline-card">
+                  <div className="sparkline-header">
+                    <div className="sparkline-name" title={s.name}>{s.name}</div>
+                    <div className="sparkline-pct" style={{ color: pctColor(latest) }}>{latest}%</div>
+                  </div>
+                  <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible', display: 'block' }}>
+                    <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    {pts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="2.5" fill={color}/>)}
+                  </svg>
+                  <div className="sparkline-trend" style={{ color: trendColor }}>{trend}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </>
   );
 }

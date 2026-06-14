@@ -35,7 +35,7 @@ function ScoreRing({ pct }) {
   );
 }
 
-export default function Quiz({ showToast, user }) {
+export default function Quiz({ showToast, user, initialTopic, onTopicConsumed }) {
   const [topic, setTopic] = useState('');
   const [file, setFile] = useState(null);
   const [numQ, setNumQ] = useState('10');
@@ -56,6 +56,12 @@ export default function Quiz({ showToast, user }) {
       renderMath(questionRefs.current[current]);
     }
   }, [quiz, current, revealed]);
+
+  useEffect(() => {
+    if (!initialTopic) return;
+    setTopic(initialTopic);
+    onTopicConsumed?.();
+  }, [initialTopic]);
 
   useEffect(() => {
     if (!user) return;
@@ -112,7 +118,6 @@ export default function Quiz({ showToast, user }) {
     setRevealed({});
     setCurrent(0);
     setFinished(false);
-    setSaved(false);
 
     const prompt = `Generate a ${numQ}-question multiple-choice quiz on: ${topic || 'the uploaded document'}.
 Difficulty: ${difficulty}.

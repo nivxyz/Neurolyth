@@ -7,6 +7,77 @@ import { genId, deadlineInfo, syncErrMsg } from '../utils/misc';
 
 const PRIORITIES = ['high', 'medium', 'low'];
 
+function PomodoroTimer() {
+  const [phase, setPhase] = useState('idle');
+  const [seconds, setSeconds] = useState(25 * 60);
+  const [running, setRunning] = useState(false);
+
+  useEffect(() => {
+    if (!running) return;
+    const iv = setInterval(() => setSeconds(s => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(iv);
+  }, [running]);
+
+  useEffect(() => {
+    if (!running || seconds !== 0) return;
+    if (phase === 'work') {
+      setPhase('break');
+      setSeconds(5 * 60);
+    } else {
+      setPhase('idle');
+      setSeconds(25 * 60);
+      setRunning(false);
+    }
+  }, [seconds, running, phase]);
+
+  function start() { setPhase('work'); setSeconds(25 * 60); setRunning(true); }
+  function skip() { setRunning(false); setPhase('idle'); setSeconds(25 * 60); }
+
+  const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+  const secs = String(seconds % 60).padStart(2, '0');
+  const total = phase === 'break' ? 5 * 60 : 25 * 60;
+  const progress = phase === 'idle' ? 0 : 1 - seconds / total;
+  const R = 22;
+  const CIRC = 2 * Math.PI * R;
+
+  return (
+    <div className={`pom-widget${phase === 'work' ? ' working' : phase === 'break' ? ' breaking' : ''}`}>
+      <svg width="56" height="56" viewBox="0 0 56 56" style={{ flexShrink: 0 }}>
+        <circle cx="28" cy="28" r={R} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="3.5"/>
+        {phase !== 'idle' && (
+          <circle
+            cx="28" cy="28" r={R} fill="none"
+            stroke={phase === 'break' ? 'var(--green)' : 'var(--accent)'}
+            strokeWidth="3.5" strokeLinecap="round"
+            strokeDasharray={`${progress * CIRC} ${CIRC}`}
+            style={{ transform: 'rotate(-90deg)', transformOrigin: '28px 28px', transition: 'stroke-dasharray 1s linear' }}
+          />
+        )}
+        <text x="28" y="32" textAnchor="middle" fill="white" fontSize="11" fontWeight="700" fontFamily="'JetBrains Mono',monospace">
+          {mins}:{secs}
+        </text>
+      </svg>
+      <div className="pom-info">
+        <div className="pom-label">
+          {phase === 'idle' ? 'Pomodoro timer' : phase === 'work' ? 'Focus time' : 'Short break!'}
+        </div>
+        <div className="pom-btns">
+          {phase === 'idle' ? (
+            <button className="pom-btn pom-start" onClick={start}>Start focus</button>
+          ) : (
+            <>
+              <button className="pom-btn" onClick={() => setRunning(r => !r)}>
+                {running ? 'Pause' : 'Resume'}
+              </button>
+              <button className="pom-btn pom-reset" onClick={skip}>✕</button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Todo({ user, showToast, userExams = [] }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -173,6 +244,7 @@ export default function Todo({ user, showToast, userExams = [] }) {
         </div>
 
         <div className="tasks-side">
+          <PomodoroTimer />
           {filterOptions.length > 1 && (
             <div className="todo-filter-row">
               {filterOptions.map(s => (

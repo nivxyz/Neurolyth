@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
@@ -10,6 +10,8 @@ import Quiz from './Quiz';
 import AI from './AI';
 import Flashcards from './Flashcards';
 import Timetable from './Timetable';
+import Notes from './Notes';
+import CommandPalette from './CommandPalette';
 
 const NAV_GROUPS = [
   {
@@ -40,6 +42,15 @@ const NAV_GROUPS = [
           <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="2,14 6,9 10,11 16,4"/>
             <polyline points="12,4 16,4 16,8"/>
+          </svg>
+        ),
+      },
+      {
+        id: 'Notes',
+        icon: (
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 2h10a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/>
+            <path d="M6 6h6M6 9h6M6 12h4"/>
           </svg>
         ),
       },
@@ -100,6 +111,8 @@ export default function AppShell({ user, showToast }) {
   const [userExams, setUserExams] = useState([]);
   const [userMarks, setUserMarks] = useState({});
   const [theme, setTheme] = useState(() => localStorage.getItem('nlTheme') || 'dark');
+  const [cmdOpen, setCmdOpen] = useState(false);
+  const [pendingTopic, setPendingTopic] = useState({ quiz: '', flash: '' });
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -140,6 +153,17 @@ export default function AppShell({ user, showToast }) {
     return () => { mountedRef.current = false; };
   }, [user.uid]);
 
+  useEffect(() => {
+    function onKey(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setCmdOpen(o => !o);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   async function saveExamsData(exams, marks) {
     setUserExams(exams);
     setUserMarks(marks);
@@ -158,14 +182,52 @@ export default function AppShell({ user, showToast }) {
     return () => { document.getElementById('screen-app')?.classList.remove('show'); };
   }, []);
 
+  const upcomingExam = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    return userExams
+      .filter(e => e.examDate)
+      .map(e => {
+        const d = new Date(e.examDate + 'T00:00:00');
+        const diff = Math.round((d - today) / 86400000);
+        return { name: e.name, diff };
+      })
+      .filter(e => e.diff >= 0)
+      .sort((a, b) => a.diff - b.diff)[0] || null;
+  }, [userExams]);
+
+  function openQuizWithTopic(content) {
+    setPendingTopic(p => ({ ...p, quiz: content }));
+    setActiveTab('Quiz');
+  }
+
+  function openFlashcardsWithTopic(content) {
+    setPendingTopic(p => ({ ...p, flash: content }));
+    setActiveTab('Flashcards');
+  }
+
   return (
     <div id="screen-app" className="app-layout">
+      <CommandPalette
+        open={cmdOpen}
+        onClose={() => setCmdOpen(false)}
+        onNavigate={tab => setActiveTab(tab)}
+      />
+
       <aside className="app-sidebar">
         <span className="sidebar-brand brand-accent">Neurolyth</span>
         <div className="sidebar-greeting">
           {greeting}
           <span style={{ animation: 'caretBlink 1s steps(1) infinite', color: 'var(--accent)' }}>▋</span>
         </div>
+
+        {upcomingExam && (
+          <div className={`sidebar-countdown${upcomingExam.diff <= 3 ? ' urgent' : ''}`}>
+            <span className="sidebar-countdown-name">{upcomingExam.name}</span>
+            <span className="sidebar-countdown-days">
+              {upcomingExam.diff === 0 ? 'Today!' : `${upcomingExam.diff}d`}
+            </span>
+          </div>
+        )}
 
         <nav className="sidebar-nav">
           {NAV_GROUPS.map(group => (
@@ -186,6 +248,10 @@ export default function AppShell({ user, showToast }) {
         </nav>
 
         <div className="sidebar-bottom">
+          <button className="sidebar-cmd-hint" onClick={() => setCmdOpen(true)}>
+            <span className="cmd-hint-key">⌘K</span>
+            Command palette
+          </button>
           <button
             className="sidebar-theme-btn"
             onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
@@ -219,11 +285,30 @@ export default function AppShell({ user, showToast }) {
           <div className={`panel${activeTab === 'Progress' ? ' active' : ''}`}>
             <Progress userExams={userExams} userMarks={userMarks} />
           </div>
+          <div className={`panel${activeTab === 'Notes' ? ' active' : ''}`}>
+            <Notes
+              user={user}
+              showToast={showToast}
+              userExams={userExams}
+              onGenerateQuiz={openQuizWithTopic}
+              onMakeFlashcards={openFlashcardsWithTopic}
+            />
+          </div>
           <div className={`panel${activeTab === 'Quiz' ? ' active' : ''}`}>
-            <Quiz showToast={showToast} user={user} />
+            <Quiz
+              showToast={showToast}
+              user={user}
+              initialTopic={pendingTopic.quiz}
+              onTopicConsumed={() => setPendingTopic(p => ({ ...p, quiz: '' }))}
+            />
           </div>
           <div className={`panel${activeTab === 'Flashcards' ? ' active' : ''}`}>
-            <Flashcards user={user} showToast={showToast} />
+            <Flashcards
+              user={user}
+              showToast={showToast}
+              initialTopic={pendingTopic.flash}
+              onTopicConsumed={() => setPendingTopic(p => ({ ...p, flash: '' }))}
+            />
           </div>
           <div className={`panel${activeTab === 'Schedule' ? ' active' : ''}`}>
             <Timetable user={user} showToast={showToast} />
