@@ -166,7 +166,7 @@ The "answer" field is the 0-based index of the correct option.`;
           {saved && <div style={{ fontSize: 12, color: 'var(--green)', marginTop: 6, fontFamily: "'JetBrains Mono', monospace" }}>Saved to history ✓</div>}
           <div className="score-actions">
             <button className="score-btn primary" onClick={() => {
-              setAnswers({}); setRevealed({}); setCurrent(0); setFinished(false);
+              setCurrent(0); setFinished(false);
             }}>
               Review answers
             </button>
@@ -186,6 +186,7 @@ The "answer" field is the 0-based index of the correct option.`;
     const total = quiz.questions.length;
     const answered = answers[current];
     const isRevealed = revealed[current];
+    const isReviewMode = Object.keys(answers).length === total;
     return (
       <>
         <div className="page-hero">
@@ -234,6 +235,10 @@ The "answer" field is the 0-based index of the correct option.`;
             {current < total - 1 ? (
               <button className="q-nav-btn" onClick={() => setCurrent(c => c + 1)} disabled={!isRevealed}>
                 Next →
+              </button>
+            ) : isReviewMode ? (
+              <button className="q-nav-btn finish" onClick={() => setFinished(true)}>
+                ← Back to score
               </button>
             ) : (
               <button
