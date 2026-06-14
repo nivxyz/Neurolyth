@@ -47,7 +47,7 @@ export default function Quiz({ showToast, user }) {
   const [current, setCurrent] = useState(0);
   const [finished, setFinished] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [history, setHistory] = useState([]);
   const cardRef = useRef(null);
   const questionRefs = useRef([]);
 
@@ -56,6 +56,17 @@ export default function Quiz({ showToast, user }) {
       renderMath(questionRefs.current[current]);
     }
   }, [quiz, current, revealed]);
+
+  useEffect(() => {
+    if (!user) return;
+    async function loadHistory() {
+      try {
+        const snap = await getDoc(doc(db, 'users', user.uid, 'data', 'quizHistory'));
+        if (snap.exists()) setHistory(snap.data().history || []);
+      } catch { /* non-critical */ }
+    }
+    loadHistory();
+  }, [user]);
 
   useEffect(() => {
     if (!finished || !quiz || !user) return;
@@ -67,8 +78,9 @@ export default function Quiz({ showToast, user }) {
         const ref = doc(db, 'users', user.uid, 'data', 'quizHistory');
         const snap = await getDoc(ref);
         const existing = snap.exists() ? (snap.data().history || []) : [];
-        await setDoc(ref, { history: [entry, ...existing].slice(0, 20) });
-        setSaved(true);
+        const updated = [entry, ...existing].slice(0, 20);
+        await setDoc(ref, { history: updated });
+        setHistory(updated);
       } catch { /* non-critical */ }
     }
     save();
@@ -167,7 +179,6 @@ The "answer" field is the 0-based index of the correct option.`;
             <div className="score-sub">
               {score} / {quiz.questions.length} correct
             </div>
-            {saved && <div style={{ fontSize: 12, color: 'var(--green)', marginTop: 6, fontFamily: "'JetBrains Mono', monospace" }}>Saved to history ✓</div>}
             <div className="score-actions">
               <button className="score-btn primary" onClick={() => {
                 setCurrent(0); setFinished(false);
@@ -350,6 +361,28 @@ The "answer" field is the 0-based index of the correct option.`;
           </div>
         )}
       </div>
+
+      {history.length > 0 && (
+        <div className="quiz-history">
+          <div className="quiz-history-title">Recent quizzes</div>
+          <div className="quiz-history-list">
+            {history.slice(0, 8).map(h => {
+              const d = new Date(h.date);
+              const dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+              const cls = h.pct >= 75 ? 'great' : h.pct >= 50 ? 'ok' : 'poor';
+              return (
+                <div key={h.id} className="quiz-history-item">
+                  <div className="qh-title">{h.title}</div>
+                  <div className="qh-right">
+                    <span className={`qh-pct ${cls}`}>{h.pct}%</span>
+                    <span className="qh-meta">{h.score}/{h.total} · {dateStr}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </>
   );
 }
