@@ -7,10 +7,29 @@ import { genId, deadlineInfo, syncErrMsg } from '../utils/misc';
 
 const PRIORITIES = ['high', 'medium', 'low'];
 
+function buildNoiseBuffer(ctx, type) {
+  const size = ctx.sampleRate * 3;
+  const buf = ctx.createBuffer(1, size, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  if (type === 'white') {
+    for (let i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
+  } else {
+    let last = 0;
+    for (let i = 0; i < size; i++) {
+      const w = Math.random() * 2 - 1;
+      last = (last + 0.02 * w) / 1.02;
+      data[i] = last * 3.5;
+    }
+  }
+  return buf;
+}
+
 function PomodoroTimer() {
   const [phase, setPhase] = useState('idle');
   const [seconds, setSeconds] = useState(25 * 60);
   const [running, setRunning] = useState(false);
+  const [sound, setSound] = useState('none');
+  const audioRef = useRef(null);
 
   useEffect(() => {
     if (!running) return;
@@ -29,6 +48,32 @@ function PomodoroTimer() {
       setRunning(false);
     }
   }, [seconds, running, phase]);
+
+  useEffect(() => {
+    stopAudio();
+    if (running && sound !== 'none') {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const gain = ctx.createGain();
+        gain.gain.value = sound === 'white' ? 0.08 : 0.18;
+        gain.connect(ctx.destination);
+        const src = ctx.createBufferSource();
+        src.buffer = buildNoiseBuffer(ctx, sound);
+        src.loop = true;
+        src.connect(gain);
+        src.start();
+        audioRef.current = { ctx, src };
+      } catch {}
+    }
+    return stopAudio;
+  }, [running, sound]);
+
+  function stopAudio() {
+    if (!audioRef.current) return;
+    try { audioRef.current.src.stop(); } catch {}
+    try { audioRef.current.ctx.close(); } catch {}
+    audioRef.current = null;
+  }
 
   function start() { setPhase('work'); setSeconds(25 * 60); setRunning(true); }
   function skip() { setRunning(false); setPhase('idle'); setSeconds(25 * 60); }
@@ -72,6 +117,16 @@ function PomodoroTimer() {
               <button className="pom-btn pom-reset" onClick={skip}>✕</button>
             </>
           )}
+        </div>
+        <div className="pom-sound-row">
+          {[['none','Silent'],['brown','Rain'],['white','Focus']].map(([v,l]) => (
+            <button
+              key={v}
+              className={`pom-sound-btn${sound === v ? ' active' : ''}`}
+              onClick={() => setSound(v)}
+              title={v === 'brown' ? 'Brown noise (rain-like)' : v === 'white' ? 'White noise' : 'No sound'}
+            >{l}</button>
+          ))}
         </div>
       </div>
     </div>

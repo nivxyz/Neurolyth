@@ -11,6 +11,7 @@ import AI from './AI';
 import Flashcards from './Flashcards';
 import Timetable from './Timetable';
 import Notes from './Notes';
+import Calendar from './Calendar';
 import CommandPalette from './CommandPalette';
 
 const NAV_GROUPS = [
@@ -51,6 +52,15 @@ const NAV_GROUPS = [
           <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 2h10a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/>
             <path d="M6 6h6M6 9h6M6 12h4"/>
+          </svg>
+        ),
+      },
+      {
+        id: 'Calendar',
+        icon: (
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="3" width="14" height="13" rx="2"/>
+            <path d="M2 8h14M6 2v2M12 2v2M5 12h.01M9 12h.01M13 12h.01"/>
           </svg>
         ),
       },
@@ -113,6 +123,7 @@ export default function AppShell({ user, showToast }) {
   const [theme, setTheme] = useState(() => localStorage.getItem('nlTheme') || 'dark');
   const [cmdOpen, setCmdOpen] = useState(false);
   const [pendingTopic, setPendingTopic] = useState({ quiz: '', flash: '' });
+  const [streak, setStreak] = useState(0);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -151,6 +162,29 @@ export default function AppShell({ user, showToast }) {
     }
     load();
     return () => { mountedRef.current = false; };
+  }, [user.uid]);
+
+  useEffect(() => {
+    async function checkStreak() {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+        const ydayStr = yesterday.toISOString().slice(0, 10);
+        const ref = doc(db, 'users', user.uid, 'data', 'streak');
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          const d = snap.data();
+          if (d.date === today) { setStreak(d.count); return; }
+          const newCount = d.date === ydayStr ? d.count + 1 : 1;
+          setStreak(newCount);
+          await setDoc(ref, { date: today, count: newCount, longest: Math.max(d.longest || 0, newCount) });
+        } else {
+          setStreak(1);
+          await setDoc(ref, { date: today, count: 1, longest: 1 });
+        }
+      } catch {}
+    }
+    checkStreak();
   }, [user.uid]);
 
   useEffect(() => {
@@ -220,14 +254,22 @@ export default function AppShell({ user, showToast }) {
           <span style={{ animation: 'caretBlink 1s steps(1) infinite', color: 'var(--accent)' }}>▋</span>
         </div>
 
-        {upcomingExam && (
-          <div className={`sidebar-countdown${upcomingExam.diff <= 3 ? ' urgent' : ''}`}>
-            <span className="sidebar-countdown-name">{upcomingExam.name}</span>
-            <span className="sidebar-countdown-days">
-              {upcomingExam.diff === 0 ? 'Today!' : `${upcomingExam.diff}d`}
-            </span>
-          </div>
-        )}
+        <div className="sidebar-meta-row">
+          {streak > 0 && (
+            <div className={`sidebar-streak${streak >= 7 ? ' hot' : ''}`} title={`${streak}-day study streak`}>
+              <span>{streak >= 7 ? '🔥' : '✦'}</span>
+              {streak}d
+            </div>
+          )}
+          {upcomingExam && (
+            <div className={`sidebar-countdown${upcomingExam.diff <= 3 ? ' urgent' : ''}`}>
+              <span className="sidebar-countdown-name">{upcomingExam.name}</span>
+              <span className="sidebar-countdown-days">
+                {upcomingExam.diff === 0 ? 'Today!' : `${upcomingExam.diff}d`}
+              </span>
+            </div>
+          )}
+        </div>
 
         <nav className="sidebar-nav">
           {NAV_GROUPS.map(group => (
@@ -285,6 +327,9 @@ export default function AppShell({ user, showToast }) {
           <div className={`panel${activeTab === 'Progress' ? ' active' : ''}`}>
             <Progress userExams={userExams} userMarks={userMarks} />
           </div>
+          <div className={`panel${activeTab === 'Calendar' ? ' active' : ''}`}>
+            <Calendar user={user} userExams={userExams} />
+          </div>
           <div className={`panel${activeTab === 'Notes' ? ' active' : ''}`}>
             <Notes
               user={user}
@@ -314,7 +359,7 @@ export default function AppShell({ user, showToast }) {
             <Timetable user={user} showToast={showToast} />
           </div>
           <div className={`panel${activeTab === 'AI' ? ' active' : ''}`}>
-            <AI user={user} showToast={showToast} />
+            <AI user={user} showToast={showToast} userExams={userExams} userMarks={userMarks} />
           </div>
         </div>
       </main>

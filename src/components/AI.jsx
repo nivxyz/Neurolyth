@@ -46,7 +46,7 @@ function AnimatedBubble({ text, onDone }) {
   );
 }
 
-export default function AI({ user, showToast }) {
+export default function AI({ user, showToast, userExams, userMarks }) {
   const [chats, setChats] = useState({});
   const [chatList, setChatList] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
@@ -224,9 +224,11 @@ export default function AI({ user, showToast }) {
       <div className="ai-mode-tabs">
         <button className={`ai-mode-tab${aiMode === 'chat' ? ' active' : ''}`} onClick={() => setAiMode('chat')}>Chat</button>
         <button className={`ai-mode-tab${aiMode === 'summarise' ? ' active' : ''}`} onClick={() => setAiMode('summarise')}>Summarise notes</button>
+        <button className={`ai-mode-tab${aiMode === 'plan' ? ' active' : ''}`} onClick={() => setAiMode('plan')}>Study plan</button>
       </div>
 
       {aiMode === 'summarise' && <Summariser showToast={showToast} />}
+      {aiMode === 'plan' && <StudyPlanner showToast={showToast} userExams={userExams} userMarks={userMarks} />}
 
       {aiMode === 'chat' && <div className="ai-layout">
         {/* Sidebar */}
@@ -395,6 +397,120 @@ ${notes || '(see uploaded file)'}`;
               </div>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StudyPlanner({ showToast, userExams = [], userMarks = {} }) {
+  const [busy, setBusy] = useState(false);
+  const [plan, setPlan] = useState('');
+  const [focus, setFocus] = useState('balanced');
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (plan && ref.current) renderMath(ref.current);
+  }, [plan]);
+
+  async function generate() {
+    if (!userExams.length) { showToast('Add exams in Marks first so I can plan around them.', true); return; }
+    setBusy(true);
+    setPlan('');
+    const today = new Date().toISOString().slice(0, 10);
+    const examContext = userExams.map(e => {
+      const m = userMarks[e.id] || {};
+      const subjs = e.subjects.map(s => {
+        const raw = m[s.id];
+        const pct = raw !== undefined && !isNaN(parseFloat(raw))
+          ? Math.round((parseFloat(raw) / s.max) * 100) + '%'
+          : 'no data';
+        return `${s.name} (${pct})`;
+      }).join(', ');
+      const days = e.examDate
+        ? Math.round((new Date(e.examDate + 'T00:00:00') - new Date()) / 86400000)
+        : null;
+      return `• ${e.name}: ${subjs}${days !== null ? ` — ${days} days away` : ''}`;
+    }).join('\n');
+
+    const focusNote = focus === 'weak' ? 'Prioritise weak subjects (lowest scores) heavily.'
+      : focus === 'nearest' ? 'Prioritise the nearest exam, then the next.'
+      : 'Balance time across all exams.';
+
+    const prompt = `Today is ${today}. I'm a student with these upcoming exams and current scores:
+${examContext}
+
+Strategy: ${focusNote}
+
+Write a practical week-by-week study plan. For each week:
+- Say which exam(s) to focus on and why
+- Give 3-4 specific daily study goals (topics to cover, flashcards, past papers)
+- Keep it realistic (2-3 hours per day max)
+- Use markdown with ## Week 1, ## Week 2 etc headers
+
+Be direct and actionable. Don't be vague.`;
+
+    try {
+      const result = await geminiGenerate(prompt, null, 'You are a student study coach. Give practical, specific advice.');
+      setPlan(result);
+    } catch (e) {
+      showToast(e.message || 'Plan generation failed.', true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="study-planner">
+      <div className="quiz-input-card" style={{ maxWidth: 680 }}>
+        {userExams.length === 0 ? (
+          <div className="prog-empty">Add your exams and subjects in the Marks tab first, then come back here.</div>
+        ) : (
+          <>
+            <div className="form-field">
+              <label className="form-label">Strategy</label>
+              <div className="plan-strategy-row">
+                {[
+                  ['balanced', 'Balanced'],
+                  ['weak', 'Fix weak spots'],
+                  ['nearest', 'Nearest exam first'],
+                ].map(([v, l]) => (
+                  <button
+                    key={v}
+                    className={`plan-strat-btn${focus === v ? ' active' : ''}`}
+                    onClick={() => setFocus(v)}
+                  >{l}</button>
+                ))}
+              </div>
+            </div>
+            <div className="plan-exam-preview">
+              {userExams.map(e => {
+                const days = e.examDate
+                  ? Math.round((new Date(e.examDate + 'T00:00:00') - new Date()) / 86400000)
+                  : null;
+                return (
+                  <div key={e.id} className="plan-exam-chip">
+                    {e.name}{days !== null ? <span className="plan-chip-days">{days}d</span> : null}
+                  </div>
+                );
+              })}
+            </div>
+            <button className="gen-quiz-btn" style={{ width: '100%' }} onClick={generate} disabled={busy}>
+              {busy ? 'Planning…' : 'Generate my study plan'}
+            </button>
+          </>
+        )}
+      </div>
+
+      {busy && <div className="quiz-loading"><div className="q-spinner"/><p>Building your personalised plan…</p></div>}
+
+      {plan && (
+        <div className="summary-section" style={{ marginTop: 20 }}>
+          <div
+            className="ai-bubble formatted"
+            ref={ref}
+            dangerouslySetInnerHTML={{ __html: formatMarkdown(plan) }}
+          />
         </div>
       )}
     </div>

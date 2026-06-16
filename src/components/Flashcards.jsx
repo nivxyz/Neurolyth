@@ -29,6 +29,7 @@ export default function Flashcards({ user, showToast, initialTopic, onTopicConsu
   const [topic, setTopic] = useState('');
   const [numCards, setNumCards] = useState('10');
   const [generating, setGenerating] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
   const [studyOrder, setStudyOrder] = useState([]);
   const [cardIdx, setCardIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -69,12 +70,13 @@ export default function Flashcards({ user, showToast, initialTopic, onTopicConsu
   async function generate() {
     if (!topic.trim()) return;
     setGenerating(true);
-    const prompt = `Generate ${numCards} flashcards on: ${topic}.
+    const topicLine = topic.trim() ? `on: ${topic}` : 'based on the uploaded image/file';
+    const prompt = `Generate ${numCards} flashcards ${topicLine}.
 Return ONLY valid JSON, no markdown:
 {"title":"...", "cards":[{"front":"Question or term","back":"Answer or definition"},...]}
 Use LaTeX math ($...$) ONLY for actual mathematical equations. Do NOT use LaTeX for code, HTML, or plain text.`;
     try {
-      const raw = await geminiGenerate(prompt, null, 'You are a flashcard generator. Return only valid JSON.');
+      const raw = await geminiGenerate(prompt, imageFile || null, 'You are a flashcard generator. Return only valid JSON.');
       const parsed = parseQuizJson(raw);
       if (!parsed?.cards?.length) throw new Error('Invalid format.');
       const deck = { id: genId(), title: parsed.title || topic, cards: parsed.cards, srsData: {}, createdAt: Date.now() };
@@ -225,20 +227,41 @@ Use LaTeX math ($...$) ONLY for actual mathematical equations. Do NOT use LaTeX 
       <>
         <div className="page-hero">
           <h2><em>Flashcards</em></h2>
-          <p>Generate a deck from any topic or notes.</p>
+          <p>Generate a deck from any topic, notes, or handwritten photo.</p>
         </div>
         <div className="quiz-builder">
           <div className="quiz-input-card">
             <div className="form-field">
-              <label className="form-label">Topic</label>
+              <label className="form-label">Topic or paste notes</label>
               <textarea
                 className="form-input"
                 rows="3"
-                placeholder="e.g. Cell biology, The French Revolution, Quadratic equations…"
+                placeholder="e.g. Cell biology, The French Revolution…"
                 value={topic}
                 onChange={e => setTopic(e.target.value)}
               />
             </div>
+            <div className="quiz-or-divider">or upload image / file</div>
+            {!imageFile ? (
+              <div className="quiz-upload-zone" style={{ marginBottom: 12 }}>
+                <input
+                  type="file"
+                  accept="image/*,.pdf,.txt,.doc,.docx"
+                  onChange={e => setImageFile(e.target.files[0] || null)}
+                />
+                <span className="quiz-upload-icon">📷</span>
+                <div className="quiz-upload-label">Photo of notes, textbook page, or file</div>
+                <div className="quiz-file-types">
+                  {['JPG','PNG','PDF','TXT'].map(t => <span key={t} className="ftype">{t}</span>)}
+                </div>
+              </div>
+            ) : (
+              <div className="quiz-file-chip" style={{ marginBottom: 12 }}>
+                <span className="fc-ext">{imageFile.name.split('.').pop().toUpperCase()}</span>
+                <span className="fc-name">{imageFile.name}</span>
+                <button className="fc-remove" onClick={() => setImageFile(null)}>×</button>
+              </div>
+            )}
             <div className="quiz-controls">
               <div className="select-wrap">
                 <label className="form-label">Number of cards</label>
@@ -246,7 +269,7 @@ Use LaTeX math ($...$) ONLY for actual mathematical equations. Do NOT use LaTeX 
                   {['5','10','15','20'].map(n => <option key={n} value={n}>{n} cards</option>)}
                 </select>
               </div>
-              <button className="gen-quiz-btn" onClick={generate} disabled={generating || !topic.trim()}>
+              <button className="gen-quiz-btn" onClick={generate} disabled={generating || (!topic.trim() && !imageFile)}>
                 {generating ? 'Generating…' : 'Generate deck'}
               </button>
             </div>

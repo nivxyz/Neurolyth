@@ -280,6 +280,37 @@ export default function Progress({ userExams, userMarks }) {
         </div>
       ) : null}
 
+      {subjectData.length > 0 && (() => {
+        const targets = subjectData.map(s => {
+          const valid = s.points.filter(p => p !== null);
+          if (!valid.length) return null;
+          const avg = Math.round(valid.reduce((a, b) => a + b, 0) / valid.length);
+          const needed80 = Math.ceil(80 * (valid.length + 1) - avg * valid.length);
+          return { name: s.name, avg, needed80 };
+        }).filter(Boolean);
+        if (!targets.length) return null;
+        return (
+          <div className="chart-card">
+            <div className="chart-card-title">Grade targets</div>
+            <div className="grade-pred-grid">
+              {targets.map(s => (
+                <div key={s.name} className="grade-pred-card">
+                  <div className="grade-pred-name" title={s.name}>{s.name}</div>
+                  <div className="grade-pred-avg" style={{ color: pctColor(s.avg) }}>{s.avg}%</div>
+                  {s.needed80 <= 0 ? (
+                    <div className="grade-pred-msg grade-ok">Above 80% ✓</div>
+                  ) : s.needed80 <= 100 ? (
+                    <div className="grade-pred-msg">Need <strong>{s.needed80}%</strong> next for 80%</div>
+                  ) : (
+                    <div className="grade-pred-msg grade-hard">80% needs more data</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {subjectData.length > 0 && (
         <div className="chart-card">
           <div className="chart-card-title">Subject overview</div>

@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { label: 'Marks',      icon: '▦', tab: 'Marks' },
   { label: 'Progress',   icon: '↗', tab: 'Progress' },
   { label: 'Notes',      icon: '≡', tab: 'Notes' },
+  { label: 'Calendar',   icon: '◫', tab: 'Calendar' },
   { label: 'Quiz',       icon: '?', tab: 'Quiz' },
   { label: 'Flashcards', icon: '◫', tab: 'Flashcards' },
   { label: 'Schedule',   icon: '⊟', tab: 'Schedule' },
